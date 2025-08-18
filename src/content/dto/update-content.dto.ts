@@ -1,5 +1,5 @@
 // src/database/dto/update-content.dto.ts
-import { PartialType } from '@nestjs/mapped-types';
+import { PartialType } from '@nestjs/swagger';
 import { CreateContentDto } from '../../content/dto/create-content.dto';
 
 export class UpdateContentDto extends PartialType(CreateContentDto) {
