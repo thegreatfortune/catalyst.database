@@ -29,9 +29,6 @@ export class User {
   chainType: string;
 
   @Prop()
-  nonce: string;
-
-  @Prop()
   lastSignature: string;
 
   @Prop()
