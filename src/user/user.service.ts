@@ -341,70 +341,213 @@ export class UserService {
       throw error;
     }
   }
+
   /**
-   * 随机选择一个绑定了Twitter账号且有accessToken的用户
-   * 使用MongoDB的聚合管道实现高效的随机选择
-   * @returns 随机选择的用户，如果没有符合条件的用户则返回null
+   * 基于权重随机选择一个绑定了特定平台账号且有有效Token的用户
+   * 权重基于上次使用时间，使用时间越久权重越大
+   * @param platform 社交媒体平台
+   * @returns 随机选择的用户ID，如果没有符合条件的用户则返回null
    */
   async findRandomUserIdWithToken(
-    platform: 'twitter' | 'instagram',
-  ): Promise<string | null> {
+    platform: 'twitter' | 'instagram' | 'rednote' | 'facebook',
+  ): Promise<string> {
     try {
-      // 构建匹配条件
-      let matchCondition: {
+      this.logger.log(`开始基于权重随机选择${platform}平台用户`);
+
+      // 构建匹配条件 - 确保用户有社交账号和令牌状态
+      const matchCondition = {
+        // 确保用户有社交账号且已连接
         socialAccounts: {
           $elemMatch: {
-            platform: 'twitter' | 'instagram';
-            refreshToken?: { $exists: boolean; $ne: string };
-            accessToken?: { $exists: boolean; $ne: string };
-            isConnected: boolean;
-          };
-        };
+            platform,
+            isConnected: true,
+          },
+        },
+        // 确保用户有令牌状态且令牌有效
+        socialAccountTokenStates: {
+          $elemMatch: {
+            platform,
+            ...(platform === 'twitter'
+              ? { refreshToken: { $exists: true, $ne: '' } }
+              : { accessToken: { $exists: true, $ne: '' } }),
+          },
+        },
       };
 
-      if (platform === 'twitter') {
-        // Twitter平台需要匹配refreshToken
-        matchCondition = {
-          socialAccounts: {
-            $elemMatch: {
-              platform,
-              refreshToken: { $exists: true, $ne: '' },
-              isConnected: true,
-            },
-          },
-        };
-      } else {
-        // 其他平台匹配accessToken
-        matchCondition = {
-          socialAccounts: {
-            $elemMatch: {
-              platform,
-              accessToken: { $exists: true, $ne: '' },
-              isConnected: true,
-            },
-          },
-        };
-      }
-
-      // 查找符合条件的用户
-      const users = await this.userModel
+      // 第一步: 计算所有符合条件用户的总权重
+      const totalWeightResult = await this.userModel
         .aggregate([
-          // 应用构建的匹配条件
+          // 1. 匹配有效的用户
           { $match: matchCondition },
-          // 随机排序
-          { $sample: { size: 1 } },
+          // 2. 展开socialAccountTokenStates数组
+          { $unwind: '$socialAccountTokenStates' },
+          // 3. 只保留指定平台的令牌状态
+          { $match: { 'socialAccountTokenStates.platform': platform } },
+          // 4. 计算每个用户的权重
+          {
+            $addFields: {
+              weight: {
+                $max: [
+                  1,
+                  {
+                    $divide: [
+                      {
+                        $subtract: [
+                          new Date(),
+                          {
+                            $ifNull: [
+                              '$socialAccountTokenStates.lastUsedAt',
+                              new Date(0), // 如果lastUsedAt不存在，使用1970年
+                            ],
+                          },
+                        ],
+                      },
+                      1000 * 60, // 转换为分钟
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+          // 5. 计算总权重
+          {
+            $group: {
+              _id: null,
+              totalWeight: { $sum: '$weight' },
+            },
+          },
         ])
         .exec();
 
-      // 如果找到用户，返回第一个（也是唯一一个）
-      if (users && users.length > 0) {
-        return users[0].id;
+      const totalWeight = totalWeightResult[0]?.totalWeight || 0;
+      if (totalWeight === 0) {
+        this.logger.warn(`没有可用的${platform}平台用户或总权重为0`);
+        throw new NotFoundException(`没有可用的${platform}平台用户或总权重为0`);
       }
 
-      // 没有找到符合条件的用户
-      return null;
+      // 第二步: 生成随机数
+      const randomNumber = Math.random() * totalWeight;
+      this.logger.debug(`总权重: ${totalWeight}, 随机数: ${randomNumber}`);
+
+      // 第三步: 执行加权随机查询
+      const randomUsers = await this.userModel
+        .aggregate([
+          // 1. 匹配有效的用户
+          { $match: matchCondition },
+          // 2. 展开socialAccountTokenStates数组
+          { $unwind: '$socialAccountTokenStates' },
+          // 3. 只保留指定平台的令牌状态
+          { $match: { 'socialAccountTokenStates.platform': platform } },
+          // 4. 计算每个用户的权重
+          {
+            $addFields: {
+              weight: {
+                $max: [
+                  1,
+                  {
+                    $divide: [
+                      {
+                        $subtract: [
+                          new Date(),
+                          {
+                            $ifNull: [
+                              '$socialAccountTokenStates.lastUsedAt',
+                              new Date(0),
+                            ],
+                          },
+                        ],
+                      },
+                      1000 * 60, // 转换为分钟
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+          // 5. 排序以确保处理顺序固定
+          { $sort: { _id: 1 } },
+          // 6. 计算累积权重
+          {
+            $setWindowFields: {
+              partitionBy: null,
+              sortBy: { _id: 1 },
+              output: {
+                cumulativeWeight: {
+                  $sum: '$weight',
+                  window: { documents: ['unbounded', 'current'] },
+                },
+              },
+            },
+          },
+          // 7. 匹配第一个累积权重大于等于随机数的文档
+          { $match: { cumulativeWeight: { $gte: randomNumber } } },
+          // 8. 只返回第一个匹配的文档
+          { $limit: 1 },
+          // 9. 只返回需要的字段
+          {
+            $project: {
+              _id: 1,
+            },
+          },
+        ])
+        .exec();
+
+      // 如果找到用户，返回ID
+      if (randomUsers && randomUsers.length > 0) {
+        this.logger.log(`成功选择用户ID: ${randomUsers[0]._id}`);
+        return randomUsers[0]._id;
+      }
+
+      this.logger.warn(`未能找到符合条件的${platform}平台用户`);
+      throw new NotFoundException(`未能找到符合条件的${platform}平台用户`);
     } catch (error) {
-      this.logger.error('随机选择用户失败', error);
+      this.logger.error(`加权随机选择${platform}平台用户失败`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * 更新用户社交账号的最后使用时间
+   * 仅在令牌成功完整使用后调用此方法
+   * @param userId 用户ID
+   * @param platform 社交媒体平台
+   * @returns 更新后的用户对象
+   */
+  async updateSocialAccountLastUsedAt(
+    userId: string,
+    platform: 'twitter' | 'instagram' | 'rednote' | 'facebook',
+  ): Promise<User> {
+    try {
+      this.logger.log(`更新用户 ${userId} 的 ${platform} 账号最后使用时间`);
+
+      // 直接更新指定平台的lastUsedAt字段
+      const result = await this.userModel
+        .findOneAndUpdate(
+          {
+            _id: userId,
+            'socialAccountTokenStates.platform': platform,
+          },
+          {
+            $set: {
+              'socialAccountTokenStates.$.lastUsedAt': new Date(),
+            },
+          },
+          { new: true },
+        )
+        .exec();
+
+      if (!result) {
+        throw new NotFoundException(
+          `未找到用户 ${userId} 或其 ${platform} 账号`,
+        );
+      }
+
+      return result;
+    } catch (error) {
+      this.logger.error(
+        `更新用户 ${userId} 的 ${platform} 账号最后使用时间失败`,
+        error,
+      );
       throw error;
     }
   }

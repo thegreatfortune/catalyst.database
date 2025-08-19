@@ -33,6 +33,7 @@ export interface SocialAccountTokenState {
   refreshToken?: string;
   tokenExpiry?: Date;
   scope?: string;
+  lastUsedAt?: Date;
 }
 
 @Schema({ timestamps: true })

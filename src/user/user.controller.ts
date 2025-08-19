@@ -224,6 +224,26 @@ export class UserController {
     }
   }
 
+  @Patch(':id/social-account/:platform/last-used-at')
+  async updateSocialAccountLastUsedAt(
+    @Param('id') id: string,
+    @Param('platform') platform: 'twitter' | 'instagram' | 'rednote' | 'facebook',
+  ) {
+    try {
+      return this.userService.updateSocialAccountLastUsedAt(id, platform);
+    } catch (error) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
+        throw error;
+      }
+      throw new InternalServerErrorException(
+        `更新用户 ${id} 的 ${platform} 账号信息失败`,
+      );
+    }
+  }
+
   @Get('random/:platform')
   async getRandomUserWithToken(@Param('platform') platform: string) {
     if (platform !== 'twitter') {
