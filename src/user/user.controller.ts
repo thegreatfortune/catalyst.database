@@ -6,8 +6,6 @@ import {
   Param,
   Delete,
   Patch,
-  HttpException,
-  HttpStatus,
   BadRequestException,
   NotFoundException,
   InternalServerErrorException,
@@ -15,7 +13,9 @@ import {
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import type { MiningState, SocialAccount } from 'src/schemas/user.schema';
+import { AddSocialAccountDto } from './dto/add-social-account.dto';
+import { UpdateSocialAccountDto } from './dto/update-social-account.dto';
+import { SocialAccount } from '../schemas/user.schema';
 
 @Controller('user')
 export class UserController {
@@ -103,10 +103,15 @@ export class UserController {
   @Post(':id/social-account')
   async addSocialAccount(
     @Param('id') id: string,
-    @Body() socialAccount: SocialAccount,
+    @Body() addSocialAccountDto: AddSocialAccountDto,
   ) {
     try {
-      return this.userService.addSocialAccount(id, socialAccount);
+      return this.userService.addSocialAccount(
+        id,
+        addSocialAccountDto.platform,
+        addSocialAccountDto.socialAccountDto,
+        addSocialAccountDto.socialAccountTokenStateDto,
+      );
     } catch (error) {
       if (
         error instanceof NotFoundException ||
@@ -175,17 +180,37 @@ export class UserController {
   async updateSocialAccount(
     @Param('id') id: string,
     @Param('platform') platform: string,
-    @Body() updateData: Partial<SocialAccount>,
+    @Body() updateData: UpdateSocialAccountDto,
   ) {
-    if (platform !== 'twitter') {
-      throw new BadRequestException('不支持的社媒平台');
+    // 验证平台类型
+    if (!['twitter', 'instagram', 'rednote', 'facebook'].includes(platform)) {
+      throw new BadRequestException('不支持的社交媒体平台');
     }
+
     try {
-      return this.userService.updateSocialAccountConnectionStatus(
+      // 确保updateData中的platform与URL参数一致
+      if (updateData.platform && updateData.platform !== platform) {
+        throw new BadRequestException('请求体中的platform必须与URL参数一致');
+      }
+
+      // 设置platform以确保一致性
+      updateData.platform = platform as
+        | 'twitter'
+        | 'instagram'
+        | 'rednote'
+        | 'facebook';
+
+      const updatedUser = await this.userService.updateSocialAccount(
         id,
         platform,
         updateData,
       );
+
+      return {
+        success: true,
+        message: `成功更新用户 ${id} 的 ${platform} 账号信息`,
+        data: updatedUser,
+      };
     } catch (error) {
       if (
         error instanceof NotFoundException ||
@@ -194,32 +219,7 @@ export class UserController {
         throw error;
       }
       throw new InternalServerErrorException(
-        `更新用户 ${id} 的 ${platform} 账号连接状态失败`,
-      );
-    }
-  }
-
-  @Patch(':id/mining-state/:platform')
-  async updateMiningState(
-    @Param('id') id: string,
-    @Param('platform') platform: string,
-    @Body() updateData: Partial<MiningState>,
-  ) {
-    if (platform !== 'twitter') {
-      throw new BadRequestException('不支持的社媒平台');
-    }
-    try {
-      return this.userService.updateMiningState(id, platform, updateData);
-    } catch (error) {
-      if (
-        error instanceof NotFoundException ||
-        error instanceof BadRequestException
-      ) {
-        throw error;
-      }
-
-      throw new InternalServerErrorException(
-        `更新用户 ${id} 的 ${platform} 账号 Mining State 失败`,
+        `更新用户 ${id} 的 ${platform} 账号信息失败`,
       );
     }
   }

@@ -1,15 +1,17 @@
 // src/database/dto/create-user.dto.ts
 import {
   IsBoolean,
+  IsDate,
   IsEnum,
   IsNotEmpty,
+  IsNumber,
   IsOptional,
   IsString,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
-export class UserWalletInfoDto {
+export class WalletInfoDto {
   @IsString()
   @IsOptional()
   ens?: string;
@@ -27,7 +29,7 @@ export class UserWalletInfoDto {
   }[];
 }
 
-export class UserPreferencesDto {
+export class PreferencesDto {
   @IsOptional()
   notifications?: {
     push: boolean;
@@ -57,55 +59,18 @@ export class UserPreferencesDto {
   };
 }
 
-export class UserSocialAccountDto {
-  @IsEnum(['twitter', 'instagram', 'rednote', 'facebook'])
-  @IsNotEmpty()
-  platform: 'twitter' | 'instagram' | 'rednote' | 'facebook';
-
-  @IsString()
-  @IsNotEmpty()
-  accountId: string;
-
-  @IsString()
-  @IsNotEmpty()
-  username: string;
-
-  @IsString()
-  @IsOptional()
-  displayName?: string;
-
-  @IsString()
-  @IsOptional()
-  profileUrl?: string;
-
-  @IsString()
-  @IsOptional()
-  accessToken?: string;
-
-  @IsString()
-  @IsOptional()
-  refreshToken?: string;
-
-  @IsOptional()
-  tokenExpiry?: Date;
-
-  @IsBoolean()
-  @IsOptional()
-  isConnected?: boolean = false;
-}
-
 export class CreateUserDto {
   @IsString()
   @IsNotEmpty()
   walletAddress: string;
 
   @IsString()
-  @IsOptional()
-  chainType?: string = 'bnb';
+  @IsNotEmpty()
+  chainType: string = 'bnb';
 
-  @IsString()
-  @IsOptional()
-  displayName?: string;
+  @IsDate()
+  @IsNotEmpty()
+  lastSignedAt: Date;
 
   @IsString()
   @IsOptional()
@@ -121,16 +86,11 @@ export class CreateUserDto {
 
   @IsOptional()
   @ValidateNested()
-  @Type(() => UserWalletInfoDto)
-  walletInfo?: UserWalletInfoDto;
+  @Type(() => WalletInfoDto)
+  walletInfo?: WalletInfoDto;
 
   @IsOptional()
   @ValidateNested()
-  @Type(() => UserPreferencesDto)
-  preferences?: UserPreferencesDto;
-
-  @IsOptional()
-  @ValidateNested({ each: true })
-  @Type(() => UserSocialAccountDto)
-  socialAccounts?: UserSocialAccountDto[];
+  @Type(() => PreferencesDto)
+  preferences?: PreferencesDto;
 }

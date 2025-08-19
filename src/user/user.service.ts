@@ -3,13 +3,25 @@ import {
   HttpException,
   HttpStatus,
   NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { User, SocialAccount, MiningState } from '../schemas/user.schema';
+import {
+  User,
+  SocialAccount,
+  Metrics,
+  SocialAccountTokenState,
+  SocialAccountMiningState,
+} from '../schemas/user.schema';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { Logger } from '@nestjs/common';
+import { UpdateSocialAccountDto } from './dto/update-social-account.dto';
+import {
+  SocialAccountAddDto,
+  SocialAccountTokenStateAddDto,
+} from './dto/add-social-account.dto';
 
 @Injectable()
 export class UserService {
@@ -18,7 +30,17 @@ export class UserService {
 
   async create(createUserDto: CreateUserDto): Promise<User> {
     try {
-      const createdUser = new this.userModel(createUserDto);
+      const user = {
+        walletAddress: createUserDto.walletAddress,
+        chainType: createUserDto.chainType,
+        lastSignedAt: createUserDto.lastSignedAt,
+        displayName: createUserDto.walletAddress, // TODO: displayName 获取钱包尾号
+        isActive: createUserDto.isActive,
+        walletInfo: createUserDto.walletInfo,
+        preferences: createUserDto.preferences, // TODO 修改成default preferences
+      };
+
+      const createdUser = new this.userModel(user);
       return createdUser.save();
     } catch (error) {
       this.logger.error('创建用户失败', error);
@@ -105,7 +127,9 @@ export class UserService {
   // 社交账号相关方法
   async addSocialAccount(
     userId: string,
-    socialAccount: SocialAccount,
+    platform: 'twitter' | 'instagram' | 'rednote' | 'facebook',
+    socialAccountDto: SocialAccountAddDto,
+    socialAccountTokenStateDto: SocialAccountTokenStateAddDto,
   ): Promise<User> {
     try {
       const user = await this.userModel.findById(userId).exec();
@@ -114,23 +138,58 @@ export class UserService {
         throw new NotFoundException('用户不存在');
       }
 
+      if (
+        !user.socialAccounts ||
+        !user.socialAccountTokenStates ||
+        !user.socialAccountMiningStates
+      ) {
+        user.socialAccounts = [];
+        user.socialAccountTokenStates = [];
+        user.socialAccountMiningStates = [];
+      }
+
       // 检查是否已存在相同平台的社交账号
-      const existingAccountIndex = user.socialAccounts?.findIndex(
-        (account) => account.platform === socialAccount.platform,
+      const existingAccountIndex = user.socialAccounts.findIndex(
+        (account) => account.platform === platform,
       );
 
-      if (existingAccountIndex !== -1 && existingAccountIndex !== undefined) {
-        // 更新现有社交账号
-        user.socialAccounts[existingAccountIndex] = {
-          ...user.socialAccounts[existingAccountIndex],
-          ...socialAccount,
+      if (existingAccountIndex === -1) {
+        const metrics: Metrics = {
+          followers: socialAccountDto.metrics.followers,
+          following: socialAccountDto.metrics.following,
+          totalPosts: socialAccountDto.metrics.totalPosts,
         };
-      } else {
+        const socialAccount: SocialAccount = {
+          platform,
+          accountId: socialAccountDto.accountId,
+          username: socialAccountDto.username,
+          displayName: socialAccountDto.displayName,
+          profileUrl: socialAccountDto.profileUrl,
+          metrics: metrics,
+          lastSyncedAt: socialAccountDto.lastSyncedAt,
+          isConnected: socialAccountDto.isConnected,
+        };
+
+        const socialAccountTokenState: SocialAccountTokenState = {
+          platform,
+          accessToken: socialAccountTokenStateDto.accessToken,
+          refreshToken: socialAccountTokenStateDto.refreshToken,
+          tokenExpiry: socialAccountTokenStateDto.tokenExpiry,
+          scope: socialAccountTokenStateDto.scope,
+        };
+
+        const socialAccountMiningState: SocialAccountMiningState = {
+          platform,
+          points: 0,
+          count: 0,
+        };
+
         // 添加新社交账号
-        if (!user.socialAccounts) {
-          user.socialAccounts = [];
-        }
         user.socialAccounts.push(socialAccount);
+        user.socialAccountTokenStates.push(socialAccountTokenState);
+        user.socialAccountMiningStates.push(socialAccountMiningState);
+      } else {
+        throw new BadRequestException('用户已绑定该社交账号');
       }
 
       return user.save();
@@ -140,6 +199,7 @@ export class UserService {
     }
   }
 
+  // TODO 移除只做逻辑删除
   async removeSocialAccount(userId: string, platform: string): Promise<User> {
     try {
       const user = await this.userModel.findById(userId).exec();
@@ -168,6 +228,7 @@ export class UserService {
     }
   }
 
+  // TODO 还要匹配isConnected
   async findUserBySocialAccount(
     platform: string,
     accountId: string,
@@ -195,46 +256,10 @@ export class UserService {
     }
   }
 
-  async updateSocialAccountConnectionStatus(
+  async updateSocialAccount(
     userId: string,
     platform: string,
-    updateData: Partial<SocialAccount>,
-  ): Promise<User> {
-    try {
-      const user = await this.userModel.findById(userId).exec();
-
-      if (!user) {
-        throw new HttpException('用户不存在', HttpStatus.NOT_FOUND);
-      }
-
-      const accountIndex = user.socialAccounts?.findIndex(
-        (account) => account.platform === platform,
-      );
-
-      if (accountIndex === -1 || accountIndex === undefined) {
-        throw new HttpException(
-          `未找到绑定的${platform}账号`,
-          HttpStatus.NOT_FOUND,
-        );
-      }
-
-      // 更新社交账号信息
-      user.socialAccounts[accountIndex] = {
-        ...user.socialAccounts[accountIndex],
-        ...updateData,
-      };
-
-      return user.save();
-    } catch (error) {
-      this.logger.error('更新用户 Social Account 失败', error);
-      throw error;
-    }
-  }
-
-  async updateMiningState(
-    userId: string,
-    platform: string,
-    updateData: Partial<MiningState>,
+    updateData: UpdateSocialAccountDto,
   ): Promise<User> {
     try {
       const user = await this.userModel.findById(userId).exec();
@@ -243,27 +268,79 @@ export class UserService {
         throw new NotFoundException('用户不存在');
       }
 
-      const miningStateIndex = user.miningStates?.findIndex(
-        (account) => account.platform === platform,
-      );
-
-      if (miningStateIndex === -1 || miningStateIndex === undefined) {
+      // 检查用户是否有社交账号数组
+      if (
+        !user.socialAccounts ||
+        !user.socialAccountTokenStates ||
+        !user.socialAccountMiningStates
+      ) {
         throw new NotFoundException(`未找到绑定的${platform}账号`);
       }
 
+      // 查找社交账号索引
+      const accountIndex = user.socialAccounts.findIndex(
+        (account) => account.platform === platform,
+      );
+
+      // 查找令牌状态索引
+      const tokenStateIndex = user.socialAccountTokenStates.findIndex(
+        (tokenState) => tokenState.platform === platform,
+      );
+
+      const miningStateIndex = user.socialAccountMiningStates.findIndex(
+        (miningState) => miningState.platform === platform,
+      );
+
       // 更新社交账号信息
-      user.miningStates[miningStateIndex] = {
-        ...user.miningStates[miningStateIndex],
-        ...updateData,
-      };
+      if (updateData.socialAccount) {
+        if (accountIndex === -1) {
+          throw new NotFoundException(`未找到绑定的${platform}账号`);
+        }
+        user.socialAccounts[accountIndex] = {
+          ...user.socialAccounts[accountIndex],
+          ...updateData.socialAccount,
+        };
+
+        // 如果更新了metrics，需要单独处理
+        if (updateData.socialAccount.metrics) {
+          user.socialAccounts[accountIndex].metrics = {
+            ...user.socialAccounts[accountIndex].metrics,
+            ...updateData.socialAccount.metrics,
+          };
+        }
+      }
+
+      // 更新社交账号令牌状态
+      if (updateData.socialAccountTokenState) {
+        if (tokenStateIndex === -1) {
+          throw new NotFoundException(`未找到绑定的${platform}账号`);
+        }
+        user.socialAccountTokenStates[tokenStateIndex] = {
+          ...user.socialAccountTokenStates[tokenStateIndex],
+          ...updateData.socialAccountTokenState,
+        };
+      }
+
+      // 更新社交账号指标状态（如果需要）
+      if (updateData.socialAccountMiningState) {
+        if (miningStateIndex === -1) {
+          throw new NotFoundException(`未找到绑定的${platform}账号`);
+        }
+        // 更新社交账号中的metrics
+        if (user.socialAccountMiningStates[miningStateIndex]) {
+          user.socialAccountMiningStates[miningStateIndex] = {
+            ...user.socialAccountMiningStates[miningStateIndex],
+            ...updateData.socialAccountMiningState,
+          };
+        }
+      }
 
       return user.save();
     } catch (error) {
-      this.logger.error('更新用户 Mining State 失败', error);
+      this.logger.error('更新用户社交账号失败', error);
       throw error;
     }
   }
-
   /**
    * 随机选择一个绑定了Twitter账号且有accessToken的用户
    * 使用MongoDB的聚合管道实现高效的随机选择

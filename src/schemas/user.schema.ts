@@ -10,21 +10,29 @@ export interface SocialAccount {
   username: string;
   displayName?: string;
   profileUrl?: string;
+  metrics: Metrics;
+  lastSyncedAt: Date;
+  isConnected: boolean;
+}
+export interface Metrics {
+  followers: number;
+  following: number;
+  totalPosts: number;
+}
 
+export interface SocialAccountMiningState {
+  platform: 'twitter' | 'instagram' | 'rednote' | 'facebook';
+  points: number;
+  count: number;
+}
+
+export interface SocialAccountTokenState {
+  platform: 'twitter' | 'instagram' | 'rednote' | 'facebook';
   // OAuth相关
   accessToken?: string;
   refreshToken?: string;
   tokenExpiry?: Date;
   scope?: string;
-
-  // 连接状态 - 简单布尔值
-  isConnected: boolean;
-}
-
-export interface MiningState {
-  platform: 'twitter' | 'instagram' | 'rednote' | 'facebook';
-  points: number;
-  count: number;
 }
 
 @Schema({ timestamps: true })
@@ -36,19 +44,16 @@ export class User {
   chainType: string;
 
   @Prop()
-  lastSignature: string;
-
-  @Prop()
   lastSignedAt: Date;
 
   @Prop()
   displayName: string;
 
   @Prop()
-  avatar: string;
+  avatar?: string;
 
   @Prop()
-  bio: string;
+  bio?: string;
 
   @Prop({ default: true })
   isActive: boolean;
@@ -89,16 +94,6 @@ export class User {
     };
   };
 
-  @Prop({ type: Object, description: '用户统计信息' })
-  stats: {
-    totalPosts: number;
-    totalComments: number;
-    followers: number;
-    following: number;
-    contentViews: number;
-    lastActivityAt: Date;
-  };
-
   @Prop({
     type: [
       {
@@ -113,8 +108,31 @@ export class User {
         },
       },
     ],
+    description: '用户社交媒体账号信息',
   })
-  socialAccounts: SocialAccount[];
+  socialAccounts?: SocialAccount[];
+
+  @Prop({
+    type: [
+      {
+        type: Object,
+        // 确保每个平台只能绑定一个账号
+        validate: {
+          validator: function (
+            socialAccountTokenStates: SocialAccountTokenState[],
+          ) {
+            const platforms = socialAccountTokenStates.map(
+              (account) => account.platform,
+            );
+            return platforms.length === new Set(platforms).size;
+          },
+          message: '每个社交媒体平台只能有1个 socialAccountTokenState',
+        },
+      },
+    ],
+    description: '用户统计信息',
+  })
+  socialAccountTokenStates?: SocialAccountTokenState[];
 
   @Prop({
     type: [
@@ -122,16 +140,21 @@ export class User {
         type: Object,
         // 确保每个平台只能有1个 miningState
         validate: {
-          validator: function (miningStates: MiningState[]) {
-            const platforms = miningStates.map((account) => account.platform);
+          validator: function (
+            socialAccountMiningStates: SocialAccountMiningState[],
+          ) {
+            const platforms = socialAccountMiningStates.map(
+              (account) => account.platform,
+            );
             return platforms.length === new Set(platforms).size;
           },
-          message: '每个社交媒体平台只能有1个 miningState',
+          message: '每个社交媒体平台只能有1个 socialAccountMiningState',
         },
       },
     ],
+    description: '用户社交媒体平台的挖矿状态',
   })
-  miningStates: MiningState[];
+  socialAccountMiningStates?: SocialAccountMiningState[];
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
@@ -142,7 +165,6 @@ UserSchema.index({ chainType: 1 });
 UserSchema.index({ isActive: 1 });
 UserSchema.index({ createdAt: -1 });
 UserSchema.index({ 'stats.followers': -1 });
-UserSchema.index({ 'stats.lastActivityAt': -1 });
 UserSchema.index({
   'socialAccounts.platform': 1,
   'socialAccounts.accountId': 1,
