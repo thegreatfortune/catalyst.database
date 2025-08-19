@@ -12,14 +12,14 @@ export class Content {
 
   @Prop({
     required: true,
-    enum: ['post', 'comment', 'story'],
+    enum: ['post', 'thread', 'longPost', 'comment', 'story'],
     description: '内容的基本类型：帖子、评论或故事',
   })
   contentType: string;
 
   @Prop({
     type: [String],
-    enum: ['text', 'image', 'video', 'audio', 'poll', 'link', 'thread'],
+    enum: ['text', 'image', 'video', 'audio', 'poll', 'link'],
     description: '内容包含的媒体类型或特殊属性',
   })
   contentAttributes: string[];

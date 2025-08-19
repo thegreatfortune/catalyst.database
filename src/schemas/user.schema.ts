@@ -4,7 +4,7 @@ import { Document } from 'mongoose';
 
 export type UserDocument = User & Document;
 
-export interface IUserSocialAccount {
+export interface SocialAccount {
   platform: 'twitter' | 'instagram' | 'rednote' | 'facebook';
   accountId: string;
   username: string;
@@ -15,9 +15,16 @@ export interface IUserSocialAccount {
   accessToken?: string;
   refreshToken?: string;
   tokenExpiry?: Date;
+  scope?: string;
 
   // 连接状态 - 简单布尔值
   isConnected: boolean;
+}
+
+export interface MiningState {
+  platform: 'twitter' | 'instagram' | 'rednote' | 'facebook';
+  points: number;
+  count: number;
 }
 
 @Schema({ timestamps: true })
@@ -98,7 +105,7 @@ export class User {
         type: Object,
         // 确保每个平台只能绑定一个账号
         validate: {
-          validator: function (socialAccounts: IUserSocialAccount[]) {
+          validator: function (socialAccounts: SocialAccount[]) {
             const platforms = socialAccounts.map((account) => account.platform);
             return platforms.length === new Set(platforms).size;
           },
@@ -107,7 +114,24 @@ export class User {
       },
     ],
   })
-  socialAccounts: IUserSocialAccount[];
+  socialAccounts: SocialAccount[];
+
+  @Prop({
+    type: [
+      {
+        type: Object,
+        // 确保每个平台只能有1个 miningState
+        validate: {
+          validator: function (miningStates: MiningState[]) {
+            const platforms = miningStates.map((account) => account.platform);
+            return platforms.length === new Set(platforms).size;
+          },
+          message: '每个社交媒体平台只能有1个 miningState',
+        },
+      },
+    ],
+  })
+  miningStates: MiningState[];
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
