@@ -8,61 +8,62 @@ import {
   IsOptional,
   IsString,
   ValidateNested,
-} from 'class-validator';
-import { Type } from 'class-transformer';
+} from 'class-validator'
+import { Type } from 'class-transformer'
+import { PlatformType } from './refresh-token.dto'
 
 export class WalletInfoDto {
   @IsString()
   @IsOptional()
-  ens?: string;
+  ens?: string
 
   @IsString()
   @IsOptional()
-  balance?: string;
+  balance?: string
 
   @IsOptional()
   tokenBalances?: {
-    tokenAddress: string;
-    symbol: string;
-    balance: string;
-    decimals: number;
-  }[];
+    tokenAddress: string
+    symbol: string
+    balance: string
+    decimals: number
+  }[]
 }
 
 export class PreferencesDto {
   @IsOptional()
   notifications?: {
-    push: boolean;
-    contentMentions: boolean;
-    newFollowers: boolean;
-    contentInteractions: boolean;
-  };
+    push: boolean
+    contentMentions: boolean
+    newFollowers: boolean
+    contentInteractions: boolean
+  }
 
   @IsOptional()
   privacy?: {
-    profileVisibility: string;
-    showWalletActivity: boolean;
-    allowDirectMessages: boolean;
-  };
+    profileVisibility: string
+    showWalletActivity: boolean
+    allowDirectMessages: boolean
+  }
 
   @IsOptional()
   interface?: {
-    theme: string;
-    language: string;
-    timezone: string;
-  };
+    theme: string
+    language: string
+    timezone: string
+  }
 
   @IsOptional()
   contentPreferences?: {
-    topics: string[];
-    blockedKeywords: string[];
-  };
+    topics: string[]
+    blockedKeywords: string[]
+  }
 }
 
 export class CreateUserDto {
   @IsString()
   @IsNotEmpty()
-  walletAddress: string;
+  walletAddress: string
 
   @IsString()
   @IsNotEmpty()
@@ -70,15 +71,15 @@ export class CreateUserDto {
 
   @IsDate()
   @IsNotEmpty()
-  lastSignedAt: Date;
+  lastSignedAt: Date
 
   @IsString()
   @IsOptional()
-  avatar?: string;
+  avatar?: string
 
   @IsString()
   @IsOptional()
-  bio?: string;
+  bio?: string
 
   @IsBoolean()
   @IsOptional()
@@ -87,10 +88,10 @@ export class CreateUserDto {
   @IsOptional()
   @ValidateNested()
   @Type(() => WalletInfoDto)
-  walletInfo?: WalletInfoDto;
+  walletInfo?: WalletInfoDto
 
   @IsOptional()
   @ValidateNested()
   @Type(() => PreferencesDto)
-  preferences?: PreferencesDto;
+  preferences?: PreferencesDto
 }

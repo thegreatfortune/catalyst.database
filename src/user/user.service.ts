@@ -4,30 +4,36 @@ import {
   HttpStatus,
   NotFoundException,
   BadRequestException,
-} from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+} from '@nestjs/common'
+import { InjectModel } from '@nestjs/mongoose'
+import { Model } from 'mongoose'
 import {
   User,
   SocialAccount,
   Metrics,
   SocialAccountTokenState,
   SocialAccountMiningState,
-} from '../schemas/user.schema';
-import { CreateUserDto } from './dto/create-user.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
-import { Logger } from '@nestjs/common';
-import { UpdateSocialAccountDto } from './dto/update-social-account.dto';
+} from '../schemas/user.schema'
+import { CreateUserDto } from './dto/create-user.dto'
+import { UpdateUserDto } from './dto/update-user.dto'
+import { Logger } from '@nestjs/common'
+import { UpdateSocialAccountDto } from './dto/update-social-account.dto'
 import {
   SocialAccountAddDto,
   SocialAccountTokenStateAddDto,
-} from './dto/add-social-account.dto';
+} from './dto/add-social-account.dto'
 
 @Injectable()
 export class UserService {
   private readonly logger = new Logger(UserService.name);
-  constructor(@InjectModel(User.name) private userModel: Model<User>) {}
+  constructor(@InjectModel(User.name) private userModel: Model<User>) { }
 
+
+  /**
+   * 创建用户，同时报错一个refreshToken
+   * @param createUserDto 
+   * @returns 
+   */
   async create(createUserDto: CreateUserDto): Promise<User> {
     try {
       const user = {
@@ -38,52 +44,52 @@ export class UserService {
         isActive: createUserDto.isActive,
         walletInfo: createUserDto.walletInfo,
         preferences: createUserDto.preferences, // TODO 修改成default preferences
-      };
+      }
 
-      const createdUser = new this.userModel(user);
-      return createdUser.save();
+      const createdUser = new this.userModel(user)
+      return createdUser.save()
     } catch (error) {
-      this.logger.error('创建用户失败', error);
-      throw error;
+      this.logger.error('创建用户失败', error)
+      throw error
     }
   }
 
   async findAll(): Promise<User[]> {
     try {
-      return this.userModel.find().exec();
+      return this.userModel.find().exec()
     } catch (error) {
-      this.logger.error('查询用户失败', error);
-      throw error;
+      this.logger.error('查询用户失败', error)
+      throw error
     }
   }
 
   async findById(id: string): Promise<User> {
     try {
-      const user = await this.userModel.findById(id).exec();
+      const user = await this.userModel.findById(id).exec()
       if (!user) {
-        throw new NotFoundException(`User not found with id ${id}`);
+        throw new NotFoundException(`User not found with id ${id}`)
       }
-      return user;
+      return user
     } catch (error) {
-      this.logger.error('使用 ID 查找用户失败', error);
-      throw error;
+      this.logger.error('使用 ID 查找用户失败', error)
+      throw error
     }
   }
 
   async findByWalletAddress(address: string): Promise<User> {
     try {
       const user = await this.userModel
-        .findOne({ 'wallets.address': address })
-        .exec();
+        .findOne({ 'walletAddress': address })
+        .exec()
       if (!user) {
         throw new NotFoundException(
           `User not found with wallet address ${address}`,
-        );
+        )
       }
-      return user;
+      return user
     } catch (error) {
-      this.logger.error('使用 wallet address 查找用户失败', error);
-      throw error;
+      this.logger.error('使用 wallet address 查找用户失败', error)
+      throw error
     }
   }
 
@@ -91,36 +97,36 @@ export class UserService {
     try {
       const user = await this.userModel
         .findByIdAndUpdate(id, updateUserDto, { new: true })
-        .exec();
+        .exec()
       if (!user) {
-        throw new NotFoundException(`User not found with id ${id}`);
+        throw new NotFoundException(`User not found with id ${id}`)
       }
-      return user;
+      return user
     } catch (error) {
-      this.logger.error('更新用户失败', error);
-      throw error;
+      this.logger.error('更新用户失败', error)
+      throw error
     }
   }
 
   async remove(id: string): Promise<User> {
     try {
-      const user = await this.userModel.findByIdAndDelete(id).exec();
+      const user = await this.userModel.findByIdAndDelete(id).exec()
       if (!user) {
-        throw new NotFoundException(`User not found with id ${id}`);
+        throw new NotFoundException(`User not found with id ${id}`)
       }
-      return user;
+      return user
     } catch (error) {
-      this.logger.error('删除用户失败', error);
-      throw error;
+      this.logger.error('删除用户失败', error)
+      throw error
     }
   }
 
   async findUsersByChainType(chainType: string): Promise<User[]> {
     try {
-      return this.userModel.find({ 'wallets.chainType': chainType }).exec();
+      return this.userModel.find({ 'wallets.chainType': chainType }).exec()
     } catch (error) {
-      this.logger.error('使用 Chain Type 查询用户失败', error);
-      throw error;
+      this.logger.error('使用 Chain Type 查询用户失败', error)
+      throw error
     }
   }
 
@@ -132,10 +138,10 @@ export class UserService {
     socialAccountTokenStateDto: SocialAccountTokenStateAddDto,
   ): Promise<User> {
     try {
-      const user = await this.userModel.findById(userId).exec();
+      const user = await this.userModel.findById(userId).exec()
 
       if (!user) {
-        throw new NotFoundException('用户不存在');
+        throw new NotFoundException('用户不存在')
       }
 
       if (
@@ -143,22 +149,22 @@ export class UserService {
         !user.socialAccountTokenStates ||
         !user.socialAccountMiningStates
       ) {
-        user.socialAccounts = [];
-        user.socialAccountTokenStates = [];
-        user.socialAccountMiningStates = [];
+        user.socialAccounts = []
+        user.socialAccountTokenStates = []
+        user.socialAccountMiningStates = []
       }
 
       // 检查是否已存在相同平台的社交账号
       const existingAccountIndex = user.socialAccounts.findIndex(
         (account) => account.platform === platform,
-      );
+      )
 
       if (existingAccountIndex === -1) {
         const metrics: Metrics = {
           followers: socialAccountDto.metrics.followers,
           following: socialAccountDto.metrics.following,
           totalPosts: socialAccountDto.metrics.totalPosts,
-        };
+        }
         const socialAccount: SocialAccount = {
           platform,
           accountId: socialAccountDto.accountId,
@@ -168,7 +174,7 @@ export class UserService {
           metrics: metrics,
           lastSyncedAt: socialAccountDto.lastSyncedAt,
           isConnected: socialAccountDto.isConnected,
-        };
+        }
 
         const socialAccountTokenState: SocialAccountTokenState = {
           platform,
@@ -176,55 +182,55 @@ export class UserService {
           refreshToken: socialAccountTokenStateDto.refreshToken,
           tokenExpiry: socialAccountTokenStateDto.tokenExpiry,
           scope: socialAccountTokenStateDto.scope,
-        };
+        }
 
         const socialAccountMiningState: SocialAccountMiningState = {
           platform,
           points: 0,
           count: 0,
-        };
+        }
 
         // 添加新社交账号
-        user.socialAccounts.push(socialAccount);
-        user.socialAccountTokenStates.push(socialAccountTokenState);
-        user.socialAccountMiningStates.push(socialAccountMiningState);
+        user.socialAccounts.push(socialAccount)
+        user.socialAccountTokenStates.push(socialAccountTokenState)
+        user.socialAccountMiningStates.push(socialAccountMiningState)
       } else {
-        throw new BadRequestException('用户已绑定该社交账号');
+        throw new BadRequestException('用户已绑定该社交账号')
       }
 
-      return user.save();
+      return user.save()
     } catch (error) {
-      this.logger.error('添加用户 Social Account 失败', error);
-      throw error;
+      this.logger.error('添加用户 Social Account 失败', error)
+      throw error
     }
   }
 
   // TODO 移除只做逻辑删除
   async removeSocialAccount(userId: string, platform: string): Promise<User> {
     try {
-      const user = await this.userModel.findById(userId).exec();
+      const user = await this.userModel.findById(userId).exec()
 
       if (!user) {
-        throw new NotFoundException('用户不存在');
+        throw new NotFoundException('用户不存在')
       }
 
       if (!user.socialAccounts) {
-        throw new NotFoundException(`未找到绑定的${platform}账号`);
+        throw new NotFoundException(`未找到绑定的${platform}账号`)
       }
 
-      const initialLength = user.socialAccounts.length;
+      const initialLength = user.socialAccounts.length
       user.socialAccounts = user.socialAccounts.filter(
         (account) => account.platform !== platform,
-      );
+      )
 
       if (user.socialAccounts.length === initialLength) {
-        throw new NotFoundException(`未找到绑定的${platform}账号`);
+        throw new NotFoundException(`未找到绑定的${platform}账号`)
       }
 
-      return user.save();
+      return user.save()
     } catch (error) {
-      this.logger.error('删除用户 Social Account 失败', error);
-      throw error;
+      this.logger.error('删除用户 Social Account 失败', error)
+      throw error
     }
   }
 
@@ -243,16 +249,16 @@ export class UserService {
             },
           },
         })
-        .exec();
+        .exec()
       if (!user) {
         throw new NotFoundException(
           `User not found with social account ${platform}:${accountId}`,
-        );
+        )
       }
-      return user;
+      return user
     } catch (error) {
-      this.logger.error('使用 Social Account 查找用户失败', error);
-      throw error;
+      this.logger.error('使用 Social Account 查找用户失败', error)
+      throw error
     }
   }
 
@@ -262,10 +268,10 @@ export class UserService {
     updateData: UpdateSocialAccountDto,
   ): Promise<User> {
     try {
-      const user = await this.userModel.findById(userId).exec();
+      const user = await this.userModel.findById(userId).exec()
 
       if (!user) {
-        throw new NotFoundException('用户不存在');
+        throw new NotFoundException('用户不存在')
       }
 
       // 检查用户是否有社交账号数组
@@ -274,71 +280,71 @@ export class UserService {
         !user.socialAccountTokenStates ||
         !user.socialAccountMiningStates
       ) {
-        throw new NotFoundException(`未找到绑定的${platform}账号`);
+        throw new NotFoundException(`未找到绑定的${platform}账号`)
       }
 
       // 查找社交账号索引
       const accountIndex = user.socialAccounts.findIndex(
         (account) => account.platform === platform,
-      );
+      )
 
       // 查找令牌状态索引
       const tokenStateIndex = user.socialAccountTokenStates.findIndex(
         (tokenState) => tokenState.platform === platform,
-      );
+      )
 
       const miningStateIndex = user.socialAccountMiningStates.findIndex(
         (miningState) => miningState.platform === platform,
-      );
+      )
 
       // 更新社交账号信息
       if (updateData.socialAccount) {
         if (accountIndex === -1) {
-          throw new NotFoundException(`未找到绑定的${platform}账号`);
+          throw new NotFoundException(`未找到绑定的${platform}账号`)
         }
         user.socialAccounts[accountIndex] = {
           ...user.socialAccounts[accountIndex],
           ...updateData.socialAccount,
-        };
+        }
 
         // 如果更新了metrics，需要单独处理
         if (updateData.socialAccount.metrics) {
           user.socialAccounts[accountIndex].metrics = {
             ...user.socialAccounts[accountIndex].metrics,
             ...updateData.socialAccount.metrics,
-          };
+          }
         }
       }
 
       // 更新社交账号令牌状态
       if (updateData.socialAccountTokenState) {
         if (tokenStateIndex === -1) {
-          throw new NotFoundException(`未找到绑定的${platform}账号`);
+          throw new NotFoundException(`未找到绑定的${platform}账号`)
         }
         user.socialAccountTokenStates[tokenStateIndex] = {
           ...user.socialAccountTokenStates[tokenStateIndex],
           ...updateData.socialAccountTokenState,
-        };
+        }
       }
 
       // 更新社交账号指标状态（如果需要）
       if (updateData.socialAccountMiningState) {
         if (miningStateIndex === -1) {
-          throw new NotFoundException(`未找到绑定的${platform}账号`);
+          throw new NotFoundException(`未找到绑定的${platform}账号`)
         }
         // 更新社交账号中的metrics
         if (user.socialAccountMiningStates[miningStateIndex]) {
           user.socialAccountMiningStates[miningStateIndex] = {
             ...user.socialAccountMiningStates[miningStateIndex],
             ...updateData.socialAccountMiningState,
-          };
+          }
         }
       }
 
-      return user.save();
+      return user.save()
     } catch (error) {
-      this.logger.error('更新用户社交账号失败', error);
-      throw error;
+      this.logger.error('更新用户社交账号失败', error)
+      throw error
     }
   }
 
@@ -352,7 +358,7 @@ export class UserService {
     platform: 'twitter' | 'instagram' | 'rednote' | 'facebook',
   ): Promise<string> {
     try {
-      this.logger.log(`开始基于权重随机选择${platform}平台用户`);
+      this.logger.log(`开始基于权重随机选择${platform}平台用户`)
 
       // 构建匹配条件 - 确保用户有社交账号和令牌状态
       const matchCondition = {
@@ -372,7 +378,7 @@ export class UserService {
               : { accessToken: { $exists: true, $ne: '' } }),
           },
         },
-      };
+      }
 
       // 第一步: 计算所有符合条件用户的总权重
       const totalWeightResult = await this.userModel
@@ -417,17 +423,17 @@ export class UserService {
             },
           },
         ])
-        .exec();
+        .exec()
 
-      const totalWeight = totalWeightResult[0]?.totalWeight || 0;
+      const totalWeight = totalWeightResult[0]?.totalWeight || 0
       if (totalWeight === 0) {
-        this.logger.warn(`没有可用的${platform}平台用户或总权重为0`);
-        throw new NotFoundException(`没有可用的${platform}平台用户或总权重为0`);
+        this.logger.warn(`没有可用的${platform}平台用户或总权重为0`)
+        throw new NotFoundException(`没有可用的${platform}平台用户或总权重为0`)
       }
 
       // 第二步: 生成随机数
-      const randomNumber = Math.random() * totalWeight;
-      this.logger.debug(`总权重: ${totalWeight}, 随机数: ${randomNumber}`);
+      const randomNumber = Math.random() * totalWeight
+      this.logger.debug(`总权重: ${totalWeight}, 随机数: ${randomNumber}`)
 
       // 第三步: 执行加权随机查询
       const randomUsers = await this.userModel
@@ -490,19 +496,19 @@ export class UserService {
             },
           },
         ])
-        .exec();
+        .exec()
 
       // 如果找到用户，返回ID
       if (randomUsers && randomUsers.length > 0) {
-        this.logger.log(`成功选择用户ID: ${randomUsers[0]._id}`);
-        return randomUsers[0]._id;
+        this.logger.log(`成功选择用户ID: ${randomUsers[0]._id}`)
+        return randomUsers[0]._id
       }
 
-      this.logger.warn(`未能找到符合条件的${platform}平台用户`);
-      throw new NotFoundException(`未能找到符合条件的${platform}平台用户`);
+      this.logger.warn(`未能找到符合条件的${platform}平台用户`)
+      throw new NotFoundException(`未能找到符合条件的${platform}平台用户`)
     } catch (error) {
-      this.logger.error(`加权随机选择${platform}平台用户失败`, error);
-      throw error;
+      this.logger.error(`加权随机选择${platform}平台用户失败`, error)
+      throw error
     }
   }
 
@@ -518,7 +524,7 @@ export class UserService {
     platform: 'twitter' | 'instagram' | 'rednote' | 'facebook',
   ): Promise<User> {
     try {
-      this.logger.log(`更新用户 ${userId} 的 ${platform} 账号最后使用时间`);
+      this.logger.log(`更新用户 ${userId} 的 ${platform} 账号最后使用时间`)
 
       // 直接更新指定平台的lastUsedAt字段
       const result = await this.userModel
@@ -534,21 +540,21 @@ export class UserService {
           },
           { new: true },
         )
-        .exec();
+        .exec()
 
       if (!result) {
         throw new NotFoundException(
           `未找到用户 ${userId} 或其 ${platform} 账号`,
-        );
+        )
       }
 
-      return result;
+      return result
     } catch (error) {
       this.logger.error(
         `更新用户 ${userId} 的 ${platform} 账号最后使用时间失败`,
         error,
-      );
-      throw error;
+      )
+      throw error
     }
   }
 }

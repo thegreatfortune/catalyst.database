@@ -1,99 +1,109 @@
 // src/schemas/user.schema.ts
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose'
+import { Document } from 'mongoose'
+import { PlatformType } from 'src/user/dto/refresh-token.dto'
 
-export type UserDocument = User & Document;
+export type UserDocument = User & Document
 
 export interface SocialAccount {
-  platform: 'twitter' | 'instagram' | 'rednote' | 'facebook';
-  accountId: string;
-  username: string;
-  displayName?: string;
-  profileUrl?: string;
-  metrics: Metrics;
-  lastSyncedAt: Date;
-  isConnected: boolean;
+  platform: 'twitter' | 'instagram' | 'rednote' | 'facebook'
+  accountId: string
+  username: string
+  displayName?: string
+  profileUrl?: string
+  metrics: Metrics
+  lastSyncedAt: Date
+  isConnected: boolean
 }
 export interface Metrics {
-  followers: number;
-  following: number;
-  totalPosts: number;
+  followers: number
+  following: number
+  totalPosts: number
 }
 
 export interface SocialAccountMiningState {
-  platform: 'twitter' | 'instagram' | 'rednote' | 'facebook';
-  points: number;
-  count: number;
+  platform: 'twitter' | 'instagram' | 'rednote' | 'facebook'
+  points: number
+  count: number
 }
 
 export interface SocialAccountTokenState {
-  platform: 'twitter' | 'instagram' | 'rednote' | 'facebook';
+  platform: 'twitter' | 'instagram' | 'rednote' | 'facebook'
   // OAuth相关
-  accessToken?: string;
-  refreshToken?: string;
-  tokenExpiry?: Date;
-  scope?: string;
-  lastUsedAt?: Date;
+  accessToken?: string
+  refreshToken?: string
+  tokenExpiry?: Date
+  scope?: string
+  lastUsedAt?: Date
+}
+
+export interface RefreshTokenInfo {
+  token: string
+  platformType: PlatformType
+  issuedAt: Date
 }
 
 @Schema({ timestamps: true })
 export class User {
   @Prop({ required: true, unique: true, index: true })
-  walletAddress: string;
+  walletAddress: string
 
   @Prop({ required: true, default: 'bnb' })
-  chainType: string;
+  chainType: string
 
   @Prop()
-  lastSignedAt: Date;
+  lastSignedAt: Date
 
   @Prop()
-  displayName: string;
+  displayName: string
 
   @Prop()
-  avatar?: string;
+  avatar?: string
 
   @Prop()
-  bio?: string;
+  bio?: string
 
   @Prop({ default: true })
-  isActive: boolean;
+  isActive: boolean
 
   @Prop({ type: Object })
   walletInfo: {
-    ens?: string;
-    balance?: string;
+    ens?: string
+    balance?: string
     tokenBalances?: {
-      tokenAddress: string;
-      symbol: string;
-      balance: string;
-      decimals: number;
-    }[];
-  };
+      tokenAddress: string
+      symbol: string
+      balance: string
+      decimals: number
+    }[]
+  }
 
   @Prop({ type: Object, description: '用户偏好设置' })
   preferences: {
     notifications?: {
-      push: boolean;
-      contentMentions: boolean;
-      newFollowers: boolean;
-      contentInteractions: boolean;
-    };
+      push: boolean
+      contentMentions: boolean
+      newFollowers: boolean
+      contentInteractions: boolean
+    }
     privacy?: {
-      profileVisibility: string;
-      showWalletActivity: boolean;
-      allowDirectMessages: boolean;
-    };
+      profileVisibility: string
+      showWalletActivity: boolean
+      allowDirectMessages: boolean
+    }
     interface?: {
-      theme: string;
-      language: string;
-      timezone: string;
-    };
+      theme: string
+      language: string
+      timezone: string
+    }
     contentPreferences?: {
-      topics: string[];
-      blockedKeywords: string[];
-    };
-  };
+      topics: string[]
+      blockedKeywords: string[]
+    }
+  }
+
+  @Prop()
+  refreshTokens: Array<RefreshTokenInfo>
 
   @Prop({
     type: [
@@ -102,8 +112,8 @@ export class User {
         // 确保每个平台只能绑定一个账号
         validate: {
           validator: function (socialAccounts: SocialAccount[]) {
-            const platforms = socialAccounts.map((account) => account.platform);
-            return platforms.length === new Set(platforms).size;
+            const platforms = socialAccounts.map((account) => account.platform)
+            return platforms.length === new Set(platforms).size
           },
           message: '每个社交媒体平台只能绑定一个账号',
         },
@@ -111,7 +121,7 @@ export class User {
     ],
     description: '用户社交媒体账号信息',
   })
-  socialAccounts?: SocialAccount[];
+  socialAccounts?: SocialAccount[]
 
   @Prop({
     type: [
@@ -124,8 +134,8 @@ export class User {
           ) {
             const platforms = socialAccountTokenStates.map(
               (account) => account.platform,
-            );
-            return platforms.length === new Set(platforms).size;
+            )
+            return platforms.length === new Set(platforms).size
           },
           message: '每个社交媒体平台只能有1个 socialAccountTokenState',
         },
@@ -133,7 +143,7 @@ export class User {
     ],
     description: '用户统计信息',
   })
-  socialAccountTokenStates?: SocialAccountTokenState[];
+  socialAccountTokenStates?: SocialAccountTokenState[]
 
   @Prop({
     type: [
@@ -146,8 +156,8 @@ export class User {
           ) {
             const platforms = socialAccountMiningStates.map(
               (account) => account.platform,
-            );
-            return platforms.length === new Set(platforms).size;
+            )
+            return platforms.length === new Set(platforms).size
           },
           message: '每个社交媒体平台只能有1个 socialAccountMiningState',
         },
@@ -155,19 +165,18 @@ export class User {
     ],
     description: '用户社交媒体平台的挖矿状态',
   })
-  socialAccountMiningStates?: SocialAccountMiningState[];
+  socialAccountMiningStates?: SocialAccountMiningState[]
 }
 
-export const UserSchema = SchemaFactory.createForClass(User);
+export const UserSchema = SchemaFactory.createForClass(User)
 
 // 创建索引
-UserSchema.index({ walletAddress: 1 });
-UserSchema.index({ chainType: 1 });
-UserSchema.index({ isActive: 1 });
-UserSchema.index({ createdAt: -1 });
-UserSchema.index({ 'stats.followers': -1 });
+UserSchema.index({ chainType: 1 })
+UserSchema.index({ isActive: 1 })
+UserSchema.index({ createdAt: -1 })
+UserSchema.index({ 'stats.followers': -1 })
 UserSchema.index({
   'socialAccounts.platform': 1,
   'socialAccounts.accountId': 1,
-});
-UserSchema.index({ 'walletInfo.ens': 1 });
+})
+UserSchema.index({ 'walletInfo.ens': 1 })

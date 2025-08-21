@@ -9,93 +9,99 @@ import {
   BadRequestException,
   NotFoundException,
   InternalServerErrorException,
-} from '@nestjs/common';
-import { UserService } from './user.service';
-import { CreateUserDto } from './dto/create-user.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
-import { AddSocialAccountDto } from './dto/add-social-account.dto';
-import { UpdateSocialAccountDto } from './dto/update-social-account.dto';
-import { SocialAccount } from '../schemas/user.schema';
+  Query,
+} from '@nestjs/common'
+import { UserService } from './user.service'
+import { CreateUserDto } from './dto/create-user.dto'
+import { UpdateUserDto } from './dto/update-user.dto'
+import { AddSocialAccountDto } from './dto/add-social-account.dto'
+import { UpdateSocialAccountDto } from './dto/update-social-account.dto'
+import { SocialAccount } from '../schemas/user.schema'
+import { RefreshTokenService } from './refresh-token.service'
+import { CreateRefreshTokenDto, FindRefreshTokenDto, RemoveRefreshTokenDto, UpdateRefreshTokenDto } from './dto/refresh-token.dto'
 
 @Controller('user')
 export class UserController {
-  constructor(private readonly userService: UserService) {}
+  constructor(
+    private readonly userService: UserService,
+    private readonly refreshTokenService: RefreshTokenService,
+  ) { }
 
   @Post()
   async create(@Body() createUserDto: CreateUserDto) {
     try {
-      return this.userService.create(createUserDto);
+      return this.userService.create(createUserDto)
     } catch (error) {
-      throw new InternalServerErrorException('创建用户失败');
+      throw new InternalServerErrorException('创建用户失败')
     }
   }
 
   @Get()
   async findAll() {
     try {
-      return this.userService.findAll();
+      return this.userService.findAll()
     } catch (error) {
-      throw new InternalServerErrorException('查询用户失败');
+      throw new InternalServerErrorException('查询用户失败')
     }
   }
 
   @Get(':id')
   async findOne(@Param('id') id: string) {
     try {
-      return this.userService.findById(id);
+      return this.userService.findById(id)
     } catch (error) {
       if (
         error instanceof NotFoundException ||
         error instanceof BadRequestException
       ) {
-        throw error;
+        throw error
       }
-      throw new InternalServerErrorException('查询用户失败');
+      throw new InternalServerErrorException('查询用户失败')
     }
   }
 
   @Get('wallet/:address')
   async findByWalletAddress(@Param('address') address: string) {
     try {
-      return this.userService.findByWalletAddress(address);
+      return this.userService.findByWalletAddress(address)
     } catch (error) {
       if (
         error instanceof NotFoundException ||
         error instanceof BadRequestException
       ) {
-        throw error;
+        throw error
       }
-      throw new InternalServerErrorException('查询用户失败');
+      throw new InternalServerErrorException('查询用户失败')
     }
   }
 
   @Patch(':id')
   async update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
     try {
-      return this.userService.update(id, updateUserDto);
+      return this.userService.update(id, updateUserDto)
     } catch (error) {
       if (
         error instanceof NotFoundException ||
         error instanceof BadRequestException
       ) {
-        throw error;
+        throw error
       }
-      throw new InternalServerErrorException('更新用户失败');
+      throw new InternalServerErrorException('更新用户失败')
     }
   }
 
   @Delete(':id')
   async remove(@Param('id') id: string) {
     try {
-      return this.userService.remove(id);
+      return this.userService.remove(id)
     } catch (error) {
       if (
         error instanceof NotFoundException ||
         error instanceof BadRequestException
       ) {
-        throw error;
+        throw error
       }
-      throw new InternalServerErrorException('删除用户失败');
+      throw new InternalServerErrorException('删除用户失败')
     }
   }
 
@@ -111,15 +117,15 @@ export class UserController {
         addSocialAccountDto.platform,
         addSocialAccountDto.socialAccountDto,
         addSocialAccountDto.socialAccountTokenStateDto,
-      );
+      )
     } catch (error) {
       if (
         error instanceof NotFoundException ||
         error instanceof BadRequestException
       ) {
-        throw error;
+        throw error
       }
-      throw new InternalServerErrorException('添加社交账号失败');
+      throw new InternalServerErrorException('添加社交账号失败')
     }
   }
 
@@ -129,18 +135,18 @@ export class UserController {
     @Param('platform') platform: string,
   ) {
     if (platform !== 'twitter') {
-      throw new BadRequestException('不支持的社媒平台');
+      throw new BadRequestException('不支持的社媒平台')
     }
     try {
-      return this.userService.removeSocialAccount(id, platform);
+      return this.userService.removeSocialAccount(id, platform)
     } catch (error) {
       if (
         error instanceof NotFoundException ||
         error instanceof BadRequestException
       ) {
-        throw error;
+        throw error
       }
-      throw new InternalServerErrorException('删除社交账号失败');
+      throw new InternalServerErrorException('删除社交账号失败')
     }
   }
 
@@ -150,29 +156,29 @@ export class UserController {
     @Param('platform') platform: string,
   ): Promise<SocialAccount> {
     if (platform !== 'twitter') {
-      throw new BadRequestException('不支持的社媒平台');
+      throw new BadRequestException('不支持的社媒平台')
     }
     try {
-      const user = await this.userService.findById(id);
+      const user = await this.userService.findById(id)
 
       const socialAccount = user.socialAccounts?.find(
         (account) => account.platform === platform && account.isConnected,
-      );
+      )
       if (!socialAccount) {
-        throw new NotFoundException(`未找到绑定的${platform}账号`);
+        throw new NotFoundException(`未找到绑定的${platform}账号`)
       }
 
-      return socialAccount;
+      return socialAccount
     } catch (error) {
       if (
         error instanceof NotFoundException ||
         error instanceof BadRequestException
       ) {
-        throw error;
+        throw error
       }
       throw new InternalServerErrorException(
         `获取用户 ${id} 的 ${platform} 账号失败`,
-      );
+      )
     }
   }
 
@@ -184,13 +190,13 @@ export class UserController {
   ) {
     // 验证平台类型
     if (!['twitter', 'instagram', 'rednote', 'facebook'].includes(platform)) {
-      throw new BadRequestException('不支持的社交媒体平台');
+      throw new BadRequestException('不支持的社交媒体平台')
     }
 
     try {
       // 确保updateData中的platform与URL参数一致
       if (updateData.platform && updateData.platform !== platform) {
-        throw new BadRequestException('请求体中的platform必须与URL参数一致');
+        throw new BadRequestException('请求体中的platform必须与URL参数一致')
       }
 
       // 设置platform以确保一致性
@@ -198,29 +204,29 @@ export class UserController {
         | 'twitter'
         | 'instagram'
         | 'rednote'
-        | 'facebook';
+        | 'facebook'
 
       const updatedUser = await this.userService.updateSocialAccount(
         id,
         platform,
         updateData,
-      );
+      )
 
       return {
         success: true,
         message: `成功更新用户 ${id} 的 ${platform} 账号信息`,
         data: updatedUser,
-      };
+      }
     } catch (error) {
       if (
         error instanceof NotFoundException ||
         error instanceof BadRequestException
       ) {
-        throw error;
+        throw error
       }
       throw new InternalServerErrorException(
         `更新用户 ${id} 的 ${platform} 账号信息失败`,
-      );
+      )
     }
   }
 
@@ -230,36 +236,96 @@ export class UserController {
     @Param('platform') platform: 'twitter' | 'instagram' | 'rednote' | 'facebook',
   ) {
     try {
-      return this.userService.updateSocialAccountLastUsedAt(id, platform);
+      return this.userService.updateSocialAccountLastUsedAt(id, platform)
     } catch (error) {
       if (
         error instanceof NotFoundException ||
         error instanceof BadRequestException
       ) {
-        throw error;
+        throw error
       }
       throw new InternalServerErrorException(
         `更新用户 ${id} 的 ${platform} 账号信息失败`,
-      );
+      )
     }
   }
 
   @Get('random/:platform')
   async getRandomUserWithToken(@Param('platform') platform: string) {
     if (platform !== 'twitter') {
-      throw new BadRequestException('不支持的社媒平台');
+      throw new BadRequestException('不支持的社媒平台')
     }
 
     try {
-      const userId = await this.userService.findRandomUserIdWithToken(platform);
+      const userId = await this.userService.findRandomUserIdWithToken(platform)
       if (!userId) {
-        throw new NotFoundException('未找到绑定Twitter账号且有有效Token的用户');
+        throw new NotFoundException('未找到绑定Twitter账号且有有效Token的用户')
       }
-      return userId;
+      return userId
     } catch (error) {
       throw new InternalServerErrorException(
         `查询随机用户失败: ${error.message}`,
-      );
+      )
+    }
+  }
+
+
+  /**
+   * 根据token或userId和platformType查找刷新令牌
+   * @param query token或userId和platformType
+   * @returns 
+   */
+  @Get('refresh-token')
+  async findRefreshTokenByUserId(@Query() query: FindRefreshTokenDto) {
+    try {
+      const { token, userId, platformType } = query
+
+      if (token) {
+        return this.refreshTokenService.find(token)
+      }
+
+      if (userId && platformType) {
+        return this.refreshTokenService.find(userId, platformType)
+      }
+      throw new BadRequestException('请提交正确的token或userId和platformType参数')
+
+    } catch (error) {
+      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+        throw error
+      }
+      throw new InternalServerErrorException(
+        `获取刷新令牌失败: ${error.message}`,
+      )
+    }
+  }
+
+  /**
+   * 创建刷新令牌
+   * @param body userId, token, platformType
+   * @returns 
+   */
+  @Post('refresh-token')
+  async createRefreshToken(@Body() body: CreateRefreshTokenDto) {
+    try {
+      const { userId, token, platformType } = body
+      return this.refreshTokenService.create(userId, token, platformType)
+    } catch (error) {
+      throw new InternalServerErrorException(
+        `创建刷新令牌失败: ${error.message}`,
+      )
+    }
+  }
+
+
+  @Delete('refresh-token')
+  async removeRefreshToken(@Body() body: RemoveRefreshTokenDto) {
+    try {
+      const { userId, token } = body
+      return this.refreshTokenService.remove(userId, token)
+    } catch (error) {
+      throw new InternalServerErrorException(
+        `删除刷新令牌失败: ${error.message}`,
+      )
     }
   }
 }
