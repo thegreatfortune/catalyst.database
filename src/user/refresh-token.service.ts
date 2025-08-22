@@ -66,103 +66,48 @@ export class RefreshTokenService {
         }
     }
 
+
+
+
+
     /**
-     * 查找刷新令牌
-     * @param token 刷新令牌字符串
-     */
-    async find(token: string): Promise<{ userId: string; tokenInfo: RefreshTokenInfo | null }>
-    /**
-     * 根据用户ID和平台类型查找刷新令牌
+     * 验证刷新令牌是否有效
+     * @param token 刷新令牌
      * @param userId 用户ID
      * @param platformType 平台类型
+     * @returns boolean
      */
-    async find(userId: string, platformType: PlatformType): Promise<{ userId: string; tokenInfo: RefreshTokenInfo | null }>
-    async find(param1: string, param2?: PlatformType): Promise<{ userId: string; tokenInfo: RefreshTokenInfo | null }> {
+    async isValid(token: string, userId: string, platformType: PlatformType): Promise<boolean> {
         try {
-            if (typeof param2 === 'undefined') {
-                // 第一个重载：通过token查找
-                this.logger.log(`通过token查找刷新令牌`)
-                // 计算最早有效时间
-                const minValidDate = new Date(Date.now() - maxAgeMs)
-                const token = param1
-                const user = await this.userModel
-                    .findOne(
-                        {
-                            'refreshTokens.token': token,
-                            'refreshTokens.issuedAt': { $gte: minValidDate }
-                        },
-                        { 'refreshTokens.$': 1 },
-                    )
-                    .exec()
+            this.logger.log(`查找用户 ${userId} 平台 ${platformType} 的刷新令牌`)
 
-                if (!user) {
-                    throw new NotFoundException(`用户不存在`)
-                }
+            const minValidDate = new Date(Date.now() - maxAgeMs)
+            const user = await this.userModel
+                .findOne({
+                    _id: userId,
+                    'refreshTokens.platformType': platformType,
+                    'refreshTokens.issuedAt': { $gte: minValidDate }
+                })
+                .exec()
 
-                return {
-                    userId: user._id.toString(),
-                    tokenInfo: user.refreshTokens && user.refreshTokens.length > 0
-                        ? user.refreshTokens[0]
-                        : null,
-                }
-            } else {
-                // 第二个重载：通过userId和platformType查找
-                const userId = param1
-                const platformType = param2
-                this.logger.log(`查找用户 ${userId} 平台 ${platformType} 的刷新令牌`)
-
-                const user = await this.userModel
-                    .findOne({ _id: userId })
-                    .exec()
-
-                if (!user) {
-                    throw new NotFoundException(`用户不存在`)
-                }
-
-                const refreshToken = user.refreshTokens?.find(
-                    rt => rt.platformType === platformType
-                )
-
-                return {
-                    userId: user._id.toString(),
-                    tokenInfo: refreshToken || null
-                }
+            if (!user) {
+                throw new NotFoundException(`用户 ${userId} 不存在`)
             }
+
+            const refreshToken = user.refreshTokens?.find(
+                rt => rt.platformType === platformType
+            )
+            if (!refreshToken) {
+                throw new NotFoundException(`用户 ${userId} 平台 ${platformType} 的刷新令牌不存在`)
+            }
+
+            if (refreshToken.token !== token) {
+                return false
+            }
+            return true
+
         } catch (error) {
             this.logger.error(`查找刷新令牌失败: ${error.message}`, error.stack)
-            throw error
-        }
-    }
-
-    /**
-     * 更新刷新令牌（用于令牌轮换）
-     * @param oldToken 旧令牌
-     * @param newToken 新令牌
-     * @returns 更新后的用户对象
-     */
-    async update(oldToken: string, newToken: string): Promise<User> {
-        try {
-            this.logger.log(`更新刷新令牌`)
-
-            // 使用 MongoDB 的原子操作，一次性完成查找和更新
-            const result = await this.userModel.findOneAndUpdate(
-                { 'refreshTokens.token': oldToken },
-                {
-                    $set: {
-                        'refreshTokens.$.token': newToken,
-                        'refreshTokens.$.issuedAt': new Date()
-                    }
-                },
-                { new: true } // 返回更新后的文档
-            ).exec()
-
-            if (!result) {
-                throw new NotFoundException('刷新令牌不存在或已过期')
-            }
-
-            return result
-        } catch (error) {
-            this.logger.error(`更新刷新令牌失败: ${error.message}`, error.stack)
             throw error
         }
     }

@@ -22,15 +22,15 @@ export class CreateRefreshTokenDto {
 export class FindRefreshTokenDto {
     @IsOptional()
     @IsString()
-    token?: string
+    token: string
 
     @IsOptional()
     @IsString()
-    userId?: string
+    userId: string
 
     @IsEnum(PlatformType)
     @IsNotEmpty()
-    platformType?: PlatformType
+    platformType: PlatformType
 }
 
 export class UpdateRefreshTokenDto {

@@ -276,19 +276,10 @@ export class UserController {
    * @returns 
    */
   @Get('refresh-token')
-  async findRefreshTokenByUserId(@Query() query: FindRefreshTokenDto) {
+  async findRefreshToken(@Query() query: FindRefreshTokenDto) {
     try {
       const { token, userId, platformType } = query
-
-      if (token) {
-        return this.refreshTokenService.find(token)
-      }
-
-      if (userId && platformType) {
-        return this.refreshTokenService.find(userId, platformType)
-      }
-      throw new BadRequestException('请提交正确的token或userId和platformType参数')
-
+      return await this.refreshTokenService.isValid(token, userId, platformType)
     } catch (error) {
       if (error instanceof NotFoundException || error instanceof BadRequestException) {
         throw error
