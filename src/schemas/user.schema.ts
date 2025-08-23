@@ -1,46 +1,305 @@
 // src/schemas/user.schema.ts
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose'
+import { Type } from 'class-transformer'
+import { IsBoolean, IsDate, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, ValidateNested } from 'class-validator'
 import { Document } from 'mongoose'
-import { PlatformType } from 'src/user/dto/refresh-token.dto'
 
 export type UserDocument = User & Document
 
-export interface SocialAccount {
-  platform: 'twitter' | 'instagram' | 'rednote' | 'facebook'
-  accountId: string
-  username: string
-  displayName?: string
-  profileUrl?: string
-  metrics: Metrics
-  lastSyncedAt: Date
-  isConnected: boolean
+export enum DeviceType {
+  Desktop = 'desktop',
+  Mobile = 'mobile'
 }
-export interface Metrics {
+
+export enum SocialProvider {
+  X = 'x',
+  Instagram = 'instagram',
+  Rednote = 'rednote',
+  Facebook = 'facebook'
+}
+
+export enum Language {
+  zhCN = 'zh-CN',
+  enUS = 'en-US'
+}
+
+export enum Theme {
+  light = 'light',
+  dark = 'dark'
+}
+
+export enum DefaultCurrency {
+  USDT = 'USDT',
+  BNB = 'BNB'
+}
+
+export enum Timezone {
+  'Asia/Shanghai' = 'Asia/Shanghai',
+  'America/New_York' = 'America/New_York'
+}
+
+export class AnonymousIdentity {
+  @Prop()
+  @IsString()
+  @IsNotEmpty()
+  id: string
+
+  @Prop()
+  @IsString()
+  @IsNotEmpty()
+  name: string
+
+  @Prop()
+  @IsString()
+  @IsNotEmpty()
+  avatar: string
+
+  @Prop()
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => Array<string>)
+  preferences?: string[]
+}
+
+export class Metrics {
+  @Prop()
+  @IsNumber()
+  @IsNotEmpty()
   followers: number
+
+  @Prop()
+  @IsNumber()
+  @IsNotEmpty()
   following: number
+
+  @Prop()
+  @IsNumber()
+  @IsNotEmpty()
   totalPosts: number
 }
 
-export interface SocialAccountMiningState {
-  platform: 'twitter' | 'instagram' | 'rednote' | 'facebook'
+export class SocialAccount {
+  @Prop()
+  @IsEnum(SocialProvider)
+  @IsNotEmpty()
+  provider: SocialProvider
+
+  @Prop()
+  @IsString()
+  @IsNotEmpty()
+  accountId: string
+
+  @Prop()
+  @IsString()
+  @IsNotEmpty()
+  username: string
+
+  @Prop()
+  @IsString()
+  @IsOptional()
+  displayName?: string
+
+  @Prop()
+  @IsString()
+  @IsOptional()
+  profileUrl?: string
+
+  @Prop()
+  @ValidateNested()
+  @Type(() => Metrics)
+  metrics: Metrics
+
+  @Prop()
+  @IsDate()
+  @IsNotEmpty()
+  lastSyncedAt: Date
+
+  @Prop()
+  @IsBoolean()
+  @IsOptional()
+  isConnected: boolean
+}
+
+
+export class SocialAccountMiningState {
+  @Prop()
+  @IsEnum(SocialProvider)
+  @IsNotEmpty()
+  provider: SocialProvider
+
+  @Prop()
+  @IsNumber()
+  @IsNotEmpty()
   points: number
+
+  @Prop()
+  @IsNumber()
+  @IsNotEmpty()
   count: number
 }
 
-export interface SocialAccountTokenState {
-  platform: 'twitter' | 'instagram' | 'rednote' | 'facebook'
-  // OAuth相关
+export class SocialAccountTokenState {
+  @Prop()
+  @IsEnum(SocialProvider)
+  @IsNotEmpty()
+  provider: SocialProvider
+
+  @Prop()
+  @IsString()
+  @IsOptional()
   accessToken?: string
+
+  @Prop()
+  @IsString()
+  @IsOptional()
   refreshToken?: string
+
+  @Prop()
+  @IsDate()
+  @IsOptional()
   tokenExpiry?: Date
+
+  @Prop()
+  @IsString()
+  @IsOptional()
   scope?: string
   lastUsedAt?: Date
 }
 
-export interface RefreshTokenInfo {
+export class RefreshTokenInfo {
+  @Prop()
+  @IsString()
+  @IsNotEmpty()
   token: string
-  platformType: PlatformType
+
+  @Prop()
+  @IsEnum(DeviceType)
+  @IsNotEmpty()
+  deviceType: DeviceType
+
+  @Prop()
+  @IsDate()
+  @IsNotEmpty()
   issuedAt: Date
+}
+
+export class UI {
+  @Prop()
+  @IsEnum(Language)
+  @IsNotEmpty()
+  language: Language
+
+  @Prop()
+  @IsEnum(Theme)
+  @IsNotEmpty()
+  theme: Theme
+
+  @Prop()
+  @IsEnum(DefaultCurrency)
+  @IsNotEmpty()
+  defaultCurrency: DefaultCurrency
+
+  @Prop()
+  @IsEnum(Timezone)
+  @IsNotEmpty()
+  timezone: Timezone
+}
+
+export class AI {
+  @Prop()
+  @IsBoolean()
+  @IsNotEmpty()
+  enabled: boolean
+}
+
+export class Anonymous {
+  @Prop()
+  @IsBoolean()
+  @IsNotEmpty()
+  enabled: boolean
+}
+
+export class Notifications {
+  @Prop()
+  @IsBoolean()
+  @IsNotEmpty()
+  push: boolean
+
+  @Prop()
+  @IsBoolean()
+  @IsNotEmpty()
+  contentMentions: boolean
+
+  @Prop()
+  @IsBoolean()
+  @IsNotEmpty()
+  newFollowers: boolean
+
+  @Prop()
+  @IsBoolean()
+  @IsNotEmpty()
+  contentInteractions: boolean
+}
+
+export class Privacy {
+  @Prop()
+  @IsString()
+  @IsNotEmpty()
+  profileVisibility: string
+
+  @Prop()
+  @IsBoolean()
+  @IsNotEmpty()
+  showWalletActivity: boolean
+
+  @Prop()
+  @IsBoolean()
+  @IsNotEmpty()
+  allowDirectMessages: boolean
+}
+
+export class ContentPreferences {
+  @Prop()
+  @ValidateNested()
+  @Type(() => Object)
+  topics?: string[]
+
+  @Prop()
+  @ValidateNested()
+  @Type(() => Object)
+  blockedKeywords?: string[]
+}
+
+export class Preferences {
+  @Prop()
+  @ValidateNested()
+  @Type(() => UI)
+  ui: UI
+
+  @Prop()
+  @ValidateNested()
+  @Type(() => AI)
+  ai: AI
+
+  @Prop()
+  @ValidateNested()
+  @Type(() => Anonymous)
+  anonymous: Anonymous
+
+  @Prop()
+  @ValidateNested()
+  @Type(() => Notifications)
+  notifications?: Notifications
+
+  @Prop()
+  @ValidateNested()
+  @Type(() => Privacy)
+  privacy?: Privacy
+
+  @Prop()
+  @ValidateNested()
+  @Type(() => ContentPreferences)
+  contentPreferences?: ContentPreferences
 }
 
 @Schema({ timestamps: true })
@@ -48,17 +307,17 @@ export class User {
   @Prop({ required: true, unique: true, index: true })
   walletAddress: string
 
-  @Prop({ required: true, default: 'bnb' })
-  chainType: string
+  @Prop({ required: true, default: 56 })
+  chainId: number
 
   @Prop()
   lastSignedAt: Date
 
   @Prop()
-  displayName: string
+  name: string
 
   @Prop()
-  avatar?: string
+  email?: string
 
   @Prop()
   bio?: string
@@ -67,7 +326,7 @@ export class User {
   isActive: boolean
 
   @Prop({ type: Object })
-  walletInfo: {
+  walletInfo?: {
     ens?: string
     balance?: string
     tokenBalances?: {
@@ -79,31 +338,13 @@ export class User {
   }
 
   @Prop({ type: Object, description: '用户偏好设置' })
-  preferences: {
-    notifications?: {
-      push: boolean
-      contentMentions: boolean
-      newFollowers: boolean
-      contentInteractions: boolean
-    }
-    privacy?: {
-      profileVisibility: string
-      showWalletActivity: boolean
-      allowDirectMessages: boolean
-    }
-    interface?: {
-      theme: string
-      language: string
-      timezone: string
-    }
-    contentPreferences?: {
-      topics: string[]
-      blockedKeywords: string[]
-    }
-  }
+  preferences: Preferences
 
   @Prop()
   refreshTokens: Array<RefreshTokenInfo>
+
+  @Prop()
+  anonymousIdentities?: Array<AnonymousIdentity>
 
   @Prop({
     type: [
@@ -112,8 +353,8 @@ export class User {
         // 确保每个平台只能绑定一个账号
         validate: {
           validator: function (socialAccounts: SocialAccount[]) {
-            const platforms = socialAccounts.map((account) => account.platform)
-            return platforms.length === new Set(platforms).size
+            const providers = socialAccounts.map((account) => account.provider)
+            return providers.length === new Set(providers).size
           },
           message: '每个社交媒体平台只能绑定一个账号',
         },
@@ -132,10 +373,10 @@ export class User {
           validator: function (
             socialAccountTokenStates: SocialAccountTokenState[],
           ) {
-            const platforms = socialAccountTokenStates.map(
-              (account) => account.platform,
+            const providers = socialAccountTokenStates.map(
+              (account) => account.provider,
             )
-            return platforms.length === new Set(platforms).size
+            return providers.length === new Set(providers).size
           },
           message: '每个社交媒体平台只能有1个 socialAccountTokenState',
         },
@@ -154,10 +395,10 @@ export class User {
           validator: function (
             socialAccountMiningStates: SocialAccountMiningState[],
           ) {
-            const platforms = socialAccountMiningStates.map(
-              (account) => account.platform,
+            const providers = socialAccountMiningStates.map(
+              (account) => account.provider,
             )
-            return platforms.length === new Set(platforms).size
+            return providers.length === new Set(providers).size
           },
           message: '每个社交媒体平台只能有1个 socialAccountMiningState',
         },

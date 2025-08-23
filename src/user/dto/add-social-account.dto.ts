@@ -9,6 +9,7 @@ import {
   IsString,
   ValidateNested,
 } from 'class-validator'
+import { SocialProvider } from '../../schemas/user.schema'
 
 export class MetricsAddDto {
   @IsNumber()
@@ -74,15 +75,15 @@ export class SocialAccountTokenStateAddDto {
 }
 
 export class AddSocialAccountDto {
-  @IsEnum(['twitter', 'instagram', 'rednote', 'facebook'])
+  @IsEnum(SocialProvider)
   @IsNotEmpty()
-  platform: 'twitter' | 'instagram' | 'rednote' | 'facebook'
+  provider: SocialProvider
 
   @ValidateNested()
   @Type(() => SocialAccountAddDto)
-  socialAccountDto: SocialAccountAddDto
+  socialAccountAddDto: SocialAccountAddDto
 
   @ValidateNested()
   @Type(() => SocialAccountTokenStateAddDto)
-  socialAccountTokenStateDto: SocialAccountTokenStateAddDto
+  socialAccountTokenStateAddDto: SocialAccountTokenStateAddDto
 }

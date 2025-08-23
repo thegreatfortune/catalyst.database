@@ -14,6 +14,7 @@ import {
   SocialAccountTokenStateAddDto,
 } from './add-social-account.dto';
 import { PartialType } from '@nestjs/swagger';
+import { SocialProvider } from '../../schemas/user.schema'
 
 export class SocialAccountUpdateDto extends PartialType(SocialAccountAddDto) {}
 
@@ -32,9 +33,9 @@ export class SocialAccountMiningStateUpdateDto {
 }
 
 export class UpdateSocialAccountDto {
-  @IsEnum(['twitter', 'instagram', 'rednote', 'facebook'])
+  @IsEnum(SocialProvider)
   @IsNotEmpty()
-  platform: 'twitter' | 'instagram' | 'rednote' | 'facebook';
+  provider: SocialProvider;
 
   @IsOptional()
   @ValidateNested()

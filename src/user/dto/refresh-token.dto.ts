@@ -1,9 +1,6 @@
 import { IsEnum, IsNotEmpty, IsOptional, IsString } from "class-validator"
+import { DeviceType } from "../../schemas/user.schema"
 
-export enum PlatformType {
-    Desktop = 'desktop',
-    Mobile = 'mobile'
-}
 
 export class CreateRefreshTokenDto {
     @IsString()
@@ -14,23 +11,23 @@ export class CreateRefreshTokenDto {
     @IsNotEmpty()
     token: string
 
-    @IsEnum(PlatformType)
+    @IsEnum(DeviceType)
     @IsNotEmpty()
-    platformType: PlatformType
+    deviceType: DeviceType
 }
 
 export class FindRefreshTokenDto {
-    @IsOptional()
+    @IsNotEmpty()
     @IsString()
     token: string
 
-    @IsOptional()
-    @IsString()
-    userId: string
+    // @IsOptional()
+    // @IsString()
+    // userId: string
 
-    @IsEnum(PlatformType)
+    @IsEnum(DeviceType)
     @IsNotEmpty()
-    platformType: PlatformType
+    deviceType: DeviceType
 }
 
 export class UpdateRefreshTokenDto {
