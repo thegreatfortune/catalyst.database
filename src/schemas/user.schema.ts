@@ -1,8 +1,9 @@
 // src/schemas/user.schema.ts
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose'
 import { Type } from 'class-transformer'
-import { IsBoolean, IsDate, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, ValidateNested } from 'class-validator'
+import { IsBoolean, IsDate, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, ValidateNested } from 'class-validator'
 import { Document } from 'mongoose'
+
 
 export type UserDocument = User & Document
 
@@ -40,7 +41,7 @@ export enum Timezone {
 
 export class AnonymousIdentity {
   @Prop()
-  @IsString()
+  @IsUUID()
   @IsNotEmpty()
   id: string
 
@@ -59,6 +60,26 @@ export class AnonymousIdentity {
   @ValidateNested()
   @Type(() => Array<string>)
   preferences?: string[]
+
+  @Prop()
+  @IsBoolean()
+  @IsNotEmpty()
+  isActive: boolean
+
+  @Prop()
+  @IsBoolean()
+  @IsNotEmpty()
+  isDeleted: boolean
+
+  @Prop()
+  @IsDate()
+  @IsNotEmpty()
+  createdAt: Date
+
+  @Prop()
+  @IsDate()
+  @IsNotEmpty()
+  updatedAt: Date
 }
 
 export class Metrics {
@@ -120,7 +141,6 @@ export class SocialAccount {
   isConnected: boolean
 }
 
-
 export class SocialAccountMiningState {
   @Prop()
   @IsEnum(SocialProvider)
@@ -163,6 +183,10 @@ export class SocialAccountTokenState {
   @IsString()
   @IsOptional()
   scope?: string
+
+  @Prop()
+  @IsDate()
+  @IsOptional()
   lastUsedAt?: Date
 }
 
@@ -304,19 +328,19 @@ export class Preferences {
 
 @Schema({ timestamps: true })
 export class User {
-  @Prop({ required: true, unique: true, index: true })
+  @Prop({ required: true })
   walletAddress: string
 
   @Prop({ required: true, default: 56 })
   chainId: number
 
-  @Prop()
+  @Prop({ required: true })
   lastSignedAt: Date
 
-  @Prop()
+  @Prop({ required: true })
   name: string
 
-  @Prop()
+  @Prop({ unique: true, sparse: true })
   email?: string
 
   @Prop()
@@ -412,7 +436,7 @@ export class User {
 export const UserSchema = SchemaFactory.createForClass(User)
 
 // 创建索引
-UserSchema.index({ chainType: 1 })
+UserSchema.index({ walletAddress: 1, chainId: 1 }, { unique: true })
 UserSchema.index({ isActive: 1 })
 UserSchema.index({ createdAt: -1 })
 UserSchema.index({ 'stats.followers': -1 })

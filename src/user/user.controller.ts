@@ -91,10 +91,10 @@ export class UserController {
     }
   }
 
-  @Get('wallet/:address')
-  async findByWalletAddress(@Param('address') address: string) {
+  @Get('wallet/:address/:chainId')
+  async findByWalletAddress(@Param('address') address: string, @Param('chainId') chainId: number) {
     try {
-      return this.userService.findByWalletAddress(address)
+      return this.userService.findByWalletAddress(address, Number(chainId))
     } catch (error) {
       if (
         error instanceof NotFoundException ||
@@ -143,6 +143,7 @@ export class UserController {
   @Patch(':id')
   async update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
     try {
+      console.log('database update updateUserDto:', updateUserDto)
       return this.userService.update(id, updateUserDto)
     } catch (error) {
       if (

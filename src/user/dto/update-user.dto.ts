@@ -1,5 +1,5 @@
 import { Type } from "class-transformer"
-import { IsBoolean, IsEnum, IsNotEmpty, IsOptional, IsString, ValidateNested } from "class-validator"
+import { IsBoolean, IsDate, IsEnum, IsNotEmpty, IsOptional, IsString, IsUUID, ValidateNested } from "class-validator"
 import { DefaultCurrency, Language, Preferences, Theme, Timezone } from "../../schemas/user.schema"
 
 
@@ -27,13 +27,6 @@ export class UpdateAiDto {
     @IsBoolean()
     enabled?: boolean
 }
-
-export class UpdateAnonymousDto {
-    @IsOptional()
-    @IsBoolean()
-    enabled?: boolean
-}
-
 export class UpdatePreferencesDto {
     @IsOptional()
     @ValidateNested()
@@ -44,30 +37,33 @@ export class UpdatePreferencesDto {
     @ValidateNested()
     @Type(() => UpdateAiDto)
     ai?: UpdateAiDto
-
-    @IsOptional()
-    @ValidateNested()
-    @Type(() => UpdateAnonymousDto)
-    anonymous?: UpdateAnonymousDto
 }
 
 export class AnonymousIdentityDto {
-    @IsString()
-    @IsNotEmpty()
-    id: string
+    @IsUUID()
+    @IsOptional()
+    id?: string
 
     @IsString()
-    @IsNotEmpty()
-    name: string
+    @IsOptional()
+    name?: string
 
     @IsString()
-    @IsNotEmpty()
-    avatar: string
+    @IsOptional()
+    avatar?: string
 
     @IsOptional()
     @ValidateNested()
     @Type(() => Array<string>)
     preferences?: string[]
+
+    @IsOptional()
+    @IsBoolean()
+    isActive?: boolean
+
+    @IsOptional()
+    @IsBoolean()
+    isDeleted?: boolean
 }
 
 export class UpdateUserDto {
@@ -90,6 +86,6 @@ export class UpdateUserDto {
 
     @IsOptional()
     @ValidateNested()
-    @Type(() => Array<AnonymousIdentityDto>)
+    @Type(() => AnonymousIdentityDto)
     anonymousIdentities?: Array<AnonymousIdentityDto>
 }
