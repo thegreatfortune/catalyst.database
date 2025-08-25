@@ -200,7 +200,7 @@ export class UserController {
     @Param('id') id: string,
     @Param('provider') provider: SocialProvider,
   ) {
-    if (provider !== 'x') {
+    if (provider !== SocialProvider.X) {
       throw new BadRequestException('不支持的社媒平台')
     }
     try {
@@ -221,7 +221,7 @@ export class UserController {
     @Param('id') id: string,
     @Param('provider') provider: SocialProvider,
   ): Promise<SocialAccount> {
-    if (provider !== 'x') {
+    if (provider !== SocialProvider.X) {
       throw new BadRequestException('不支持的社媒平台')
     }
     try {
