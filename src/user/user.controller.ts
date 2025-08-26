@@ -16,9 +16,10 @@ import { CreateUserDto } from './dto/create-user.dto'
 import { UpdateUserDto } from './dto/update-user.dto'
 import { AddSocialAccountDto } from './dto/add-social-account.dto'
 import { UpdateSocialAccountDto } from './dto/update-social-account.dto'
-import { SocialAccount, SocialProvider } from '../schemas/user.schema'
+import { SocialAccount, SocialAccountTokenState, SocialProvider, User } from '../schemas/user.schema'
 import { RefreshTokenService } from './refresh-token.service'
 import { CreateRefreshTokenDto, FindRefreshTokenDto, RemoveRefreshTokenDto, UpdateRefreshTokenDto } from './dto/refresh-token.dto'
+import { UpdateSocialAccountTokenStateDto } from './dto/update-social-account-token-state.dto'
 
 @Controller('user')
 export class UserController {
@@ -248,6 +249,38 @@ export class UserController {
     }
   }
 
+  @Get(':id/social-account/:provider/token-state')
+  async getSocialAccountTokenState(
+    @Param('id') id: string,
+    @Param('provider') provider: SocialProvider,
+  ): Promise<SocialAccountTokenState> {
+    if (provider !== SocialProvider.X) {
+      throw new BadRequestException('不支持的社媒平台')
+    }
+    try {
+      const user = await this.userService.findById(id)
+
+      const socialAccountTokenState = user.socialAccountTokenStates?.find(
+        (tokenState) => tokenState.provider === provider,
+      )
+      if (!socialAccountTokenState) {
+        throw new NotFoundException(`未找到绑定的${provider}账号`)
+      }
+
+      return socialAccountTokenState
+    } catch (error) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
+        throw error
+      }
+      throw new InternalServerErrorException(
+        `获取用户 ${id} 的 ${provider} 账号失败`,
+      )
+    }
+  }
+
   @Patch(':id/social-account')
   async updateSocialAccount(
     @Param('id') id: string,
@@ -299,6 +332,27 @@ export class UserController {
       }
       throw new InternalServerErrorException(
         `更新用户 ${id} 的 ${provider} 账号信息失败`,
+      )
+    }
+  }
+
+  @Patch(':id/social-account/:provider/token-state')
+  async updateSocialAccountTokenState(
+    @Param('id') id: string,
+    @Param('provider') provider: SocialProvider,
+    @Body() updateData: UpdateSocialAccountTokenStateDto
+  ): Promise<User> {
+    try {
+      return this.userService.updateSocialAccountTokenState(id, provider, updateData)
+    } catch (error) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
+        throw error
+      }
+      throw new InternalServerErrorException(
+        `更新用户 ${id} 的 ${provider} 账号令牌状态失败: ${error.message}`
       )
     }
   }

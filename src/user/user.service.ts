@@ -4,6 +4,7 @@ import {
   HttpStatus,
   NotFoundException,
   BadRequestException,
+  InternalServerErrorException,
 } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
 import { Model } from 'mongoose'
@@ -29,6 +30,7 @@ import {
   SocialAccountTokenStateAddDto,
 } from './dto/add-social-account.dto'
 import { randomUUID } from 'node:crypto'
+import { UpdateSocialAccountTokenStateDto } from './dto/update-social-account-token-state.dto'
 
 @Injectable()
 export class UserService {
@@ -604,6 +606,75 @@ export class UserService {
         `更新用户 ${userId} 的 ${provider} 账号最后使用时间失败`,
         error,
       )
+      throw error
+    }
+  }
+
+  async updateSocialAccountTokenState(
+    userId: string,
+    provider: SocialProvider,
+    updateSocialAccountTokenStateDto: UpdateSocialAccountTokenStateDto
+  ): Promise<User> {
+    try {
+      this.logger.log(`更新用户 ${userId} 的 ${provider} 账号令牌状态`)
+
+      // 查找用户
+      const user = await this.userModel.findById(userId).exec()
+      if (!user) {
+        throw new NotFoundException(`未找到ID为 ${userId} 的用户`)
+      }
+
+      // 查找对应的社交账号令牌状态
+      const tokenStateIndex = user.socialAccountTokenStates?.findIndex(
+        tokenState => tokenState.provider === provider
+      )
+
+      if (tokenStateIndex === undefined || tokenStateIndex === -1) {
+        throw new NotFoundException(`未找到用户 ${userId} 的 ${provider} 账号令牌状态`)
+      }
+
+      // 更新令牌状态字段
+      const updateData: Record<string, any> = {}
+
+      if (updateSocialAccountTokenStateDto.accessToken !== undefined) {
+        updateData[`socialAccountTokenStates.${tokenStateIndex}.accessToken`] =
+          updateSocialAccountTokenStateDto.accessToken
+      }
+
+      if (updateSocialAccountTokenStateDto.refreshToken !== undefined) {
+        updateData[`socialAccountTokenStates.${tokenStateIndex}.refreshToken`] =
+          updateSocialAccountTokenStateDto.refreshToken
+      }
+
+      if (updateSocialAccountTokenStateDto.tokenExpiry !== undefined) {
+        updateData[`socialAccountTokenStates.${tokenStateIndex}.tokenExpiry`] =
+          updateSocialAccountTokenStateDto.tokenExpiry
+      }
+
+      if (updateSocialAccountTokenStateDto.scope !== undefined) {
+        updateData[`socialAccountTokenStates.${tokenStateIndex}.scope`] =
+          updateSocialAccountTokenStateDto.scope
+      }
+
+      // 更新最后使用时间
+      updateData[`socialAccountTokenStates.${tokenStateIndex}.lastUsedAt`] = new Date()
+
+      // 使用 $set 操作符更新特定字段
+      const updatedUser = await this.userModel
+        .findByIdAndUpdate(
+          userId,
+          { $set: updateData },
+          { new: true }
+        )
+        .exec()
+
+      if (!updatedUser || !updatedUser.socialAccountTokenStates) {
+        throw new InternalServerErrorException('更新社交账号令牌状态失败')
+      }
+      return updatedUser
+
+    } catch (error) {
+      this.logger.error(`更新用户 ${userId} 的 ${provider} 账号令牌状态失败`, error)
       throw error
     }
   }
