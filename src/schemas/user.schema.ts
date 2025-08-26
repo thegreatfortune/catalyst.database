@@ -13,7 +13,7 @@ export enum DeviceType {
 }
 
 export enum SocialProvider {
-  X = 'twitter',
+  X = 'x',
   Telegram = 'telegram',
   Instagram = 'instagram',
   Rednote = 'rednote',
