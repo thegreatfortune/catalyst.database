@@ -116,7 +116,7 @@ export class UserController {
     try {
       const userId = await this.userService.findRandomUserIdWithToken(provider)
       if (!userId) {
-        throw new NotFoundException('未找到绑定Twitter账号且有有效Token的用户')
+        throw new NotFoundException('未找到绑定X账号且有有效Token的用户')
       }
       return userId
     } catch (error) {
