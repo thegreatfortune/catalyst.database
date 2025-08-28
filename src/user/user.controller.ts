@@ -217,38 +217,6 @@ export class UserController {
     }
   }
 
-  @Get(':id/social-account/:provider')
-  async getSocialAccount(
-    @Param('id') id: string,
-    @Param('provider') provider: SocialProvider,
-  ): Promise<SocialAccount> {
-    if (provider !== SocialProvider.X) {
-      throw new BadRequestException('不支持的社媒平台')
-    }
-    try {
-      const user = await this.userService.findById(id)
-
-      const socialAccount = user.socialAccounts?.find(
-        (account) => account.provider === provider && account.isConnected,
-      )
-      if (!socialAccount) {
-        throw new NotFoundException(`未找到绑定的${provider}账号`)
-      }
-
-      return socialAccount
-    } catch (error) {
-      if (
-        error instanceof NotFoundException ||
-        error instanceof BadRequestException
-      ) {
-        throw error
-      }
-      throw new InternalServerErrorException(
-        `获取用户 ${id} 的 ${provider} 账号失败`,
-      )
-    }
-  }
-
   @Get(':id/social-account/:provider/token-state')
   async getSocialAccountTokenState(
     @Param('id') id: string,
@@ -268,6 +236,38 @@ export class UserController {
       }
 
       return socialAccountTokenState
+    } catch (error) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
+        throw error
+      }
+      throw new InternalServerErrorException(
+        `获取用户 ${id} 的 ${provider} 账号失败`,
+      )
+    }
+  }
+
+  @Get(':id/social-account/:provider')
+  async getSocialAccount(
+    @Param('id') id: string,
+    @Param('provider') provider: SocialProvider,
+  ): Promise<SocialAccount> {
+    if (provider !== SocialProvider.X) {
+      throw new BadRequestException('不支持的社媒平台')
+    }
+    try {
+      const user = await this.userService.findById(id)
+
+      const socialAccount = user.socialAccounts?.find(
+        (account) => account.provider === provider && account.isConnected,
+      )
+      if (!socialAccount) {
+        throw new NotFoundException(`未找到绑定的${provider}账号`)
+      }
+
+      return socialAccount
     } catch (error) {
       if (
         error instanceof NotFoundException ||
