@@ -31,6 +31,7 @@ import {
 } from './dto/add-social-account.dto'
 import { randomUUID } from 'node:crypto'
 import { UpdateSocialAccountTokenStateDto } from './dto/update-social-account-token-state.dto'
+import { Types } from 'mongoose'
 
 @Injectable()
 export class UserService {
@@ -436,12 +437,17 @@ export class UserService {
   }
 
   async findRandomUserIdWithToken(
+    userId: string,
     provider: SocialProvider,
   ): Promise<string> {
     try {
-      this.logger.log(`开始基于权重随机选择${provider}平台用户`)
+      this.logger.log(`开始基于权重随机选择${provider}平台用户，排除用户ID: ${userId}`)
+
+      // 确保将字符串ID转换为ObjectId进行比较
+      const userObjectId = new Types.ObjectId(userId)
 
       const matchCondition = {
+        _id: { $ne: userObjectId }, // 使用ObjectId对象进行比较
         socialAccounts: {
           $elemMatch: {
             provider,

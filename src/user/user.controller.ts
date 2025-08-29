@@ -107,14 +107,14 @@ export class UserController {
     }
   }
 
-  @Get('random/:provider')
-  async getRandomUserWithToken(@Param('provider') provider: SocialProvider) {
+  @Get(':id/random/:provider')
+  async getRandomUserWithToken(@Param('id') id: string, @Param('provider') provider: SocialProvider) {
     if (provider !== SocialProvider.X) {
       throw new BadRequestException('不支持的社媒平台')
     }
 
     try {
-      const userId = await this.userService.findRandomUserIdWithToken(provider)
+      const userId = await this.userService.findRandomUserIdWithToken(id, provider)
       if (!userId) {
         throw new NotFoundException('未找到绑定X账号且有有效Token的用户')
       }
