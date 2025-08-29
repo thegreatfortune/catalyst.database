@@ -566,8 +566,8 @@ export class UserService {
         .exec()
 
       if (randomUsers && randomUsers.length > 0) {
-        this.logger.log(`成功选择用户ID: ${randomUsers[0]._id}`)
-        return randomUsers[0]._id
+        this.logger.log(`成功选择用户ID: ${randomUsers[0]._id.toString()}`)
+        return randomUsers[0]._id.toString()
       }
 
       this.logger.warn(`未能找到符合条件的${provider}平台用户`)
