@@ -1,4 +1,5 @@
 // src/database/dto/create-user.dto.ts
+import { Type } from 'class-transformer'
 import {
   IsBoolean,
   IsDate,
@@ -39,5 +40,6 @@ export class CreateUserDto {
 
   @IsDate()
   @IsNotEmpty()
+  @Type(() => Date)
   lastSignedAt: Date
 }

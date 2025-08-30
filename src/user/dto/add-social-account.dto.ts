@@ -67,6 +67,7 @@ export class SocialAccountTokenStateAddDto {
 
   @IsOptional()
   @IsDate()
+  @Type(() => Date)
   tokenExpiry?: Date
 
   @IsOptional()

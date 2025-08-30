@@ -1,159 +1,119 @@
 // src/database/dto/create-content.dto.ts
 import {
+  IsArray,
   IsEnum,
   IsMongoId,
   IsNotEmpty,
   IsOptional,
   IsString,
   ValidateNested,
-} from 'class-validator';
-import { Type } from 'class-transformer';
+} from 'class-validator'
+import { Type } from 'class-transformer'
+import { ContentAttribute, ContentStatus, ContentType } from '../../schemas/content.schema'
+import { SocialProvider } from '../../schemas/user.schema'
 
-export class PlatformDataDto {
+export class ProviderDataDto {
   @IsOptional()
   twitter?: {
-    tweetThreadId?: string;
-    pollOptions?: string[];
-    sensitiveContent?: boolean;
-  };
+    tweetThreadId?: string
+    pollOptions?: string[]
+    sensitiveContent?: boolean
+  }
 
   @IsOptional()
   instagram?: {
-    carousel?: boolean;
-    filters?: string[];
-    location?: Record<string, any>;
-    taggedUsers?: string[];
-  };
+    carousel?: boolean
+    filters?: string[]
+    location?: Record<string, any>
+    taggedUsers?: string[]
+  }
 
   @IsOptional()
   xiaohongshu?: {
-    topics?: string[];
-    goodsLinks?: string[];
-    collectionId?: string;
-  };
+    topics?: string[]
+    goodsLinks?: string[]
+    collectionId?: string
+  }
 
   @IsOptional()
   facebook?: {
-    privacy?: string;
-    feelingActivity?: Record<string, any>;
-    taggedPeople?: string[];
-  };
+    privacy?: string
+    feelingActivity?: Record<string, any>
+    taggedPeople?: string[]
+  }
 }
 
 export class MediaItemDto {
   @IsString()
   @IsNotEmpty()
-  type: string;
+  type: string
 
   @IsString()
   @IsNotEmpty()
-  url: string;
+  url: string
 
   @IsString()
   @IsNotEmpty()
-  storageProvider: string;
+  storageProvider: string
 
   @IsString()
-  originalFilename: string;
+  originalFilename: string
 
   @IsString()
-  mimeType: string;
+  mimeType: string
 
   @IsOptional()
-  size?: number;
+  size?: number
 
   @IsOptional()
   dimensions?: {
-    width: number;
-    height: number;
-  };
+    width: number
+    height: number
+  }
 
   @IsOptional()
-  duration?: number;
+  duration?: number
 
   @IsOptional()
-  thumbnailUrl?: string;
+  thumbnailUrl?: string
 
   @IsOptional()
-  alt?: string;
+  alt?: string
 
   @IsOptional()
-  metadata?: Record<string, any>;
+  metadata?: Record<string, any>
 
   @IsString()
   @IsNotEmpty()
-  status: string;
+  status: string
 }
 
 export class CreateContentDto {
-  @IsMongoId()
+  @IsString()
   @IsNotEmpty()
-  userId: string;
-
-  @IsEnum(['tweet', 'comment', 'reply', 'post', 'story'])
-  @IsNotEmpty()
-  contentType: string;
+  userId: string
 
   @IsString()
   @IsNotEmpty()
-  platform: string;
+  miningUserId: string
 
-  @IsString()
-  @IsOptional()
-  originalQuery?: string;
-
-  @IsString()
+  @IsEnum(ContentType)
   @IsNotEmpty()
-  generatedContent: string;
+  contentType: ContentType
 
-  @IsMongoId()
-  @IsOptional()
-  parentId?: string;
-
-  @IsMongoId()
-  @IsOptional()
-  rootId?: string;
-
-  @IsOptional()
-  level?: number;
-
-  @IsString()
-  @IsOptional()
-  externalId?: string;
-
-  @IsString()
-  @IsOptional()
-  externalUrl?: string;
-
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => PlatformDataDto)
-  platformData?: PlatformDataDto;
-
-  @IsOptional()
+  @IsArray()
   @ValidateNested({ each: true })
-  @Type(() => MediaItemDto)
-  media?: MediaItemDto[];
+  contentAttributes: ContentAttribute[]
 
-  @IsOptional()
-  analysis?: {
-    sentiment?: string;
-    topics?: string[];
-    keywords?: string[];
-    contentQuality?: {
-      score: number;
-      feedback: string;
-    };
-    moderationResults?: {
-      flags: string[];
-      safetyScore: number;
-    };
-  };
+  @IsEnum(SocialProvider)
+  @IsNotEmpty()
+  provider: SocialProvider
 
-  @IsEnum(['draft', 'published', 'scheduled', 'failed'])
-  @IsOptional()
-  status?: string = 'draft';
+  @IsString()
+  @IsNotEmpty()
+  originalContent: string
 
+  @IsString()
   @IsOptional()
-  scheduledTime?: Date;
+  generatedContent?: string
 }

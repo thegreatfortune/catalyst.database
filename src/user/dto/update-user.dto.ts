@@ -81,11 +81,11 @@ export class UpdateUserDto {
 
     @IsOptional()
     @ValidateNested()
-    @Type(() => Preferences)
+    @Type(() => UpdatePreferencesDto)
     preferences?: UpdatePreferencesDto
 
     @IsOptional()
     @ValidateNested()
-    @Type(() => AnonymousIdentityDto)
+    @Type(() => Array<AnonymousIdentityDto>)
     anonymousIdentities?: Array<AnonymousIdentityDto>
 }

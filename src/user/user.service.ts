@@ -32,6 +32,7 @@ import {
 import { randomUUID } from 'node:crypto'
 import { UpdateSocialAccountTokenStateDto } from './dto/update-social-account-token-state.dto'
 import { Types } from 'mongoose'
+import { UpdateSocialAccountMiningStateDto } from './dto/update-social-account-mining-state.dto'
 
 @Injectable()
 export class UserService {
@@ -209,7 +210,6 @@ export class UserService {
       throw error
     }
   }
-
 
   async remove(id: string): Promise<User> {
     try {
@@ -624,64 +624,88 @@ export class UserService {
     try {
       this.logger.log(`更新用户 ${userId} 的 ${provider} 账号令牌状态`)
 
+      const user = await this.userModel.findById(userId).exec()
+      if (!user) {
+        throw new NotFoundException(`未找到ID为 ${userId} 的用户`)
+      }
+
+      // 检查用户是否已经有该平台的令牌状态
+      let tokenStateIndex = -1
+      if (user.socialAccountTokenStates) {
+        tokenStateIndex = user.socialAccountTokenStates.findIndex(
+          (state) => state.provider === provider
+        )
+      } else {
+        user.socialAccountTokenStates = []
+      }
+
+      // 如果存在则更新，不存在则创建
+      const tokenState: SocialAccountTokenState = {
+        provider,
+        ...updateSocialAccountTokenStateDto,
+        lastUsedAt: new Date(),
+      }
+
+      if (tokenStateIndex >= 0) {
+        user.socialAccountTokenStates[tokenStateIndex] = tokenState
+      } else {
+        user.socialAccountTokenStates.push(tokenState)
+      }
+
+      await user.save()
+      return user.toJSON()
+    } catch (error) {
+      this.logger.error(
+        `更新用户 ${userId} 的 ${provider} 账号令牌状态失败`,
+        error
+      )
+      throw error
+    }
+  }
+
+  async updateSocialAccountMiningState(
+    userId: string,
+    provider: SocialProvider,
+    updateData: UpdateSocialAccountMiningStateDto
+  ): Promise<User> {
+    try {
+      this.logger.log(`更新用户 ${userId} 的 ${provider} 账号积分状态`)
+
       // 查找用户
       const user = await this.userModel.findById(userId).exec()
       if (!user) {
         throw new NotFoundException(`未找到ID为 ${userId} 的用户`)
       }
 
-      // 查找对应的社交账号令牌状态
-      const tokenStateIndex = user.socialAccountTokenStates?.findIndex(
-        tokenState => tokenState.provider === provider
+      if (!user.socialAccountMiningStates) {
+        user.socialAccountMiningStates = []
+      }
+
+      // 查找对应的社交账号积分状态
+      const miningStateIndex = user.socialAccountMiningStates?.findIndex(
+        miningState => miningState.provider === provider
       )
 
-      if (tokenStateIndex === undefined || tokenStateIndex === -1) {
-        throw new NotFoundException(`未找到用户 ${userId} 的 ${provider} 账号令牌状态`)
+      // 如果没有找到对应的社交账号积分状态，则创建一个新的
+      if (miningStateIndex === -1) {
+        // 创建新的积分状态
+        user.socialAccountMiningStates.push({
+          provider,
+          points: updateData.points,
+          count: updateData.count
+        })
+      } else {
+        // 更新现有积分状态
+        user.socialAccountMiningStates[miningStateIndex].points += updateData.points
+        user.socialAccountMiningStates[miningStateIndex].count += updateData.count
       }
 
-      // 更新令牌状态字段
-      const updateData: Record<string, any> = {}
-
-      if (updateSocialAccountTokenStateDto.accessToken !== undefined) {
-        updateData[`socialAccountTokenStates.${tokenStateIndex}.accessToken`] =
-          updateSocialAccountTokenStateDto.accessToken
-      }
-
-      if (updateSocialAccountTokenStateDto.refreshToken !== undefined) {
-        updateData[`socialAccountTokenStates.${tokenStateIndex}.refreshToken`] =
-          updateSocialAccountTokenStateDto.refreshToken
-      }
-
-      if (updateSocialAccountTokenStateDto.tokenExpiry !== undefined) {
-        updateData[`socialAccountTokenStates.${tokenStateIndex}.tokenExpiry`] =
-          updateSocialAccountTokenStateDto.tokenExpiry
-      }
-
-      if (updateSocialAccountTokenStateDto.scope !== undefined) {
-        updateData[`socialAccountTokenStates.${tokenStateIndex}.scope`] =
-          updateSocialAccountTokenStateDto.scope
-      }
-
-      // 更新最后使用时间
-      updateData[`socialAccountTokenStates.${tokenStateIndex}.lastUsedAt`] = new Date()
-
-      // 使用 $set 操作符更新特定字段
-      const updatedUser = await this.userModel
-        .findByIdAndUpdate(
-          userId,
-          { $set: updateData },
-          { new: true }
-        )
-        .exec()
-
-      if (!updatedUser || !updatedUser.socialAccountTokenStates) {
-        throw new InternalServerErrorException('更新社交账号令牌状态失败')
-      }
-      return updatedUser
-
+      await user.save()
+      return user
     } catch (error) {
-      this.logger.error(`更新用户 ${userId} 的 ${provider} 账号令牌状态失败`, error)
-      throw error
+      throw new InternalServerErrorException(
+        `更新用户 ${userId} 的 ${provider} 账号挖掘状态失败: ${error.message}`,
+      )
     }
   }
 

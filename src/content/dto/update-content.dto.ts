@@ -1,7 +1,26 @@
 // src/database/dto/update-content.dto.ts
-import { PartialType } from '@nestjs/swagger';
-import { CreateContentDto } from '../../content/dto/create-content.dto';
+import { IsArray, IsEnum, IsNotEmpty, IsOptional, IsString, ValidateNested } from 'class-validator'
+import { ContentAttribute, ContentStatus, ContentType, Metrics } from '../../schemas/content.schema'
+import { SocialProvider } from '../../schemas/user.schema'
+import { Type } from 'class-transformer'
 
-export class UpdateContentDto extends PartialType(CreateContentDto) {
-  // 所有字段都是可选的，因为继承自 PartialType(CreateContentDto)
+export class PublishContentDto {
+  @IsString()
+  @IsNotEmpty()
+  contentId: string
+
+  @IsString()
+  @IsNotEmpty()
+  providerContentId: string
+}
+
+export class UpdateMetricsDto {
+  @IsString()
+  @IsNotEmpty()
+  contentId: string
+
+  @IsNotEmpty()
+  @ValidateNested()
+  @Type(() => Metrics)
+  metrics: Metrics
 }

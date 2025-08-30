@@ -2,6 +2,7 @@
 import { PartialType } from '@nestjs/swagger'
 import { SocialAccountTokenStateAddDto } from './add-social-account.dto'
 import { IsDate, IsOptional, IsString } from 'class-validator'
+import { Type } from 'class-transformer'
 
 export class UpdateSocialAccountTokenStateDto {
     @IsOptional()
@@ -14,6 +15,7 @@ export class UpdateSocialAccountTokenStateDto {
 
     @IsOptional()
     @IsDate()
+    @Type(() => Date)
     tokenExpiry?: Date
 
     @IsOptional()

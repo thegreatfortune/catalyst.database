@@ -41,289 +41,340 @@ export enum Timezone {
 }
 
 export class AnonymousIdentity {
-  @Prop()
-  @IsUUID()
-  @IsNotEmpty()
+  @Prop({
+    type: String,
+    required: true,
+  })
   id: string
 
-  @Prop()
-  @IsString()
-  @IsNotEmpty()
+  @Prop({
+    type: String,
+    required: true,
+  })
   name: string
 
-  @Prop()
-  @IsString()
-  @IsNotEmpty()
+  @Prop({
+    type: String,
+    required: true,
+  })
   avatar: string
 
-  @Prop()
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => Array<string>)
+  @Prop({
+    type: Array<string>,
+    required: true,
+  })
   preferences?: string[]
 
-  @Prop()
-  @IsBoolean()
-  @IsNotEmpty()
+  @Prop({
+    type: Boolean,
+    required: true,
+  })
   isActive: boolean
 
-  @Prop()
-  @IsBoolean()
-  @IsNotEmpty()
+  @Prop({
+    type: Boolean,
+    required: true,
+  })
   isDeleted: boolean
 
-  @Prop()
-  @IsDate()
-  @IsNotEmpty()
+  @Prop({
+    type: Date,
+    required: true,
+  })
   createdAt: Date
 
-  @Prop()
-  @IsDate()
-  @IsNotEmpty()
+  @Prop({
+    type: Date,
+    required: true,
+  })
   updatedAt: Date
 }
 
 export class Metrics {
-  @Prop()
-  @IsNumber()
-  @IsNotEmpty()
+  @Prop({
+    type: Number,
+    required: true,
+    min: 0,
+  })
   followers: number
 
-  @Prop()
-  @IsNumber()
-  @IsNotEmpty()
+  @Prop({
+    type: Number,
+    required: true,
+    min: 0,
+  })
   following: number
 
-  @Prop()
-  @IsNumber()
-  @IsNotEmpty()
+  @Prop({
+    type: Number,
+    required: true,
+    min: 0,
+  })
   totalPosts: number
 }
 
 export class SocialAccount {
-  @Prop()
-  @IsEnum(SocialProvider)
-  @IsNotEmpty()
+  @Prop({
+    type: String,
+    enum: SocialProvider,
+    required: true,
+  })
   provider: SocialProvider
 
-  @Prop()
-  @IsString()
-  @IsNotEmpty()
+  @Prop({
+    type: String,
+    required: true,
+  })
   accountId: string
 
-  @Prop()
-  @IsString()
-  @IsNotEmpty()
+  @Prop({
+    type: String,
+    required: true,
+  })
   username: string
 
-  @Prop()
-  @IsString()
-  @IsOptional()
+  @Prop({
+    type: String
+  })
   displayName?: string
 
-  @Prop()
-  @IsString()
-  @IsOptional()
+  @Prop({
+    type: String
+  })
   profileUrl?: string
 
-  @Prop()
-  @ValidateNested()
-  @Type(() => Metrics)
+  @Prop({
+    type: Metrics,
+    required: true,
+  })
   metrics: Metrics
 
-  @Prop()
-  @IsDate()
-  @IsNotEmpty()
+  @Prop({
+    type: Date,
+    required: true,
+  })
   lastSyncedAt: Date
 
-  @Prop()
-  @IsBoolean()
-  @IsOptional()
+  @Prop({
+    type: Boolean,
+    required: true,
+  })
   isConnected: boolean
 }
 
 export class SocialAccountMiningState {
-  @Prop()
-  @IsEnum(SocialProvider)
-  @IsNotEmpty()
+  @Prop({
+    type: String,
+    enum: SocialProvider,
+    required: true,
+  })
   provider: SocialProvider
 
-  @Prop()
-  @IsNumber()
-  @IsNotEmpty()
+  @Prop({
+    type: Number,
+    required: true,
+    min: 0,
+  })
   points: number
 
-  @Prop()
-  @IsNumber()
-  @IsNotEmpty()
+  @Prop({
+    type: Number,
+    required: true,
+    min: 0,
+  })
   count: number
 }
 
 export class SocialAccountTokenState {
-  @Prop()
-  @IsEnum(SocialProvider)
-  @IsNotEmpty()
+  @Prop({
+    type: String,
+    enum: SocialProvider,
+    required: true,
+  })
   provider: SocialProvider
 
-  @Prop()
-  @IsString()
-  @IsOptional()
+  @Prop({
+    type: String
+  })
   accessToken?: string
 
-  @Prop()
-  @IsString()
-  @IsOptional()
+  @Prop({
+    type: String
+  })
   refreshToken?: string
 
-  @Prop()
-  @IsDate()
-  @IsOptional()
+  @Prop({
+    type: Date
+  })
   tokenExpiry?: Date
 
-  @Prop()
-  @IsString()
-  @IsOptional()
+  @Prop({
+    type: String
+  })
   scope?: string
 
-  @Prop()
-  @IsDate()
-  @IsOptional()
+  @Prop({
+    type: Date
+  })
   lastUsedAt?: Date
 }
 
 export class RefreshTokenInfo {
-  @Prop()
-  @IsString()
-  @IsNotEmpty()
+  @Prop({
+    type: String,
+    required: true,
+  })
   token: string
 
-  @Prop()
-  @IsEnum(DeviceType)
-  @IsNotEmpty()
+  @Prop({
+    type: String,
+    required: true,
+  })
   deviceType: DeviceType
 
-  @Prop()
-  @IsDate()
-  @IsNotEmpty()
+  @Prop({
+    type: Date,
+    required: true,
+  })
   issuedAt: Date
 }
 
 export class UI {
-  @Prop()
-  @IsEnum(Language)
-  @IsNotEmpty()
+  @Prop({
+    type: String,
+    enum: Language,
+    required: true,
+  })
   language: Language
 
-  @Prop()
-  @IsEnum(Theme)
-  @IsNotEmpty()
+  @Prop({
+    type: String,
+    enum: Theme,
+    required: true,
+  })
   theme: Theme
 
-  @Prop()
-  @IsEnum(DefaultCurrency)
-  @IsNotEmpty()
+  @Prop({
+    type: String,
+    enum: DefaultCurrency,
+    required: true,
+  })
   defaultCurrency: DefaultCurrency
 
-  @Prop()
-  @IsEnum(Timezone)
-  @IsNotEmpty()
+  @Prop({
+    type: String,
+    enum: Timezone,
+    required: true,
+  })
   timezone: Timezone
 }
 
 export class AI {
-  @Prop()
-  @IsBoolean()
-  @IsNotEmpty()
+  @Prop({
+    type: Boolean,
+    required: true,
+  })
   enabled: boolean
 }
 
 export class Anonymous {
-  @Prop()
-  @IsBoolean()
-  @IsNotEmpty()
+  @Prop({
+    type: Boolean,
+    required: true,
+  })
   enabled: boolean
 }
 
 export class Notifications {
-  @Prop()
-  @IsBoolean()
-  @IsNotEmpty()
+  @Prop({
+    type: Boolean,
+    required: true,
+  })
   push: boolean
 
-  @Prop()
-  @IsBoolean()
-  @IsNotEmpty()
+  @Prop({
+    type: Boolean,
+    required: true,
+  })
   contentMentions: boolean
 
-  @Prop()
-  @IsBoolean()
-  @IsNotEmpty()
+  @Prop({
+    type: Boolean,
+    required: true,
+  })
   newFollowers: boolean
 
-  @Prop()
-  @IsBoolean()
-  @IsNotEmpty()
+  @Prop({
+    type: Boolean,
+    required: true,
+  })
   contentInteractions: boolean
 }
 
 export class Privacy {
-  @Prop()
-  @IsString()
-  @IsNotEmpty()
+  @Prop({
+    type: String,
+    required: true,
+  })
   profileVisibility: string
 
-  @Prop()
-  @IsBoolean()
-  @IsNotEmpty()
+  @Prop({
+    type: Boolean,
+    required: true,
+  })
   showWalletActivity: boolean
 
-  @Prop()
-  @IsBoolean()
-  @IsNotEmpty()
+  @Prop({
+    type: Boolean,
+    required: true,
+  })
   allowDirectMessages: boolean
 }
 
 export class ContentPreferences {
-  @Prop()
-  @ValidateNested()
-  @Type(() => Object)
+  @Prop({
+    type: Array<string>,
+  })
   topics?: string[]
 
-  @Prop()
-  @ValidateNested()
-  @Type(() => Object)
+  @Prop({
+    type: Array<string>,
+  })
   blockedKeywords?: string[]
 }
 
 export class Preferences {
-  @Prop()
-  @ValidateNested()
-  @Type(() => UI)
+  @Prop({
+    type: UI,
+    required: true,
+  })
   ui: UI
 
-  @Prop()
-  @ValidateNested()
-  @Type(() => AI)
+  @Prop({
+    type: AI,
+    required: true,
+  })
   ai: AI
 
-  @Prop()
-  @ValidateNested()
-  @Type(() => Anonymous)
+  @Prop({
+    type: Anonymous,
+    required: true,
+  })
   anonymous: Anonymous
 
-  @Prop()
-  @ValidateNested()
-  @Type(() => Notifications)
+  @Prop({
+    type: Notifications
+  })
   notifications?: Notifications
 
-  @Prop()
-  @ValidateNested()
-  @Type(() => Privacy)
+  @Prop({
+    type: Privacy
+  })
   privacy?: Privacy
 
-  @Prop()
-  @ValidateNested()
-  @Type(() => ContentPreferences)
+  @Prop({
+    type: ContentPreferences
+  })
   contentPreferences?: ContentPreferences
 }
 

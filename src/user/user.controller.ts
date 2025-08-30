@@ -20,6 +20,7 @@ import { SocialAccount, SocialAccountTokenState, SocialProvider, User } from '..
 import { RefreshTokenService } from './refresh-token.service'
 import { CreateRefreshTokenDto, FindRefreshTokenDto, RemoveRefreshTokenDto, UpdateRefreshTokenDto } from './dto/refresh-token.dto'
 import { UpdateSocialAccountTokenStateDto } from './dto/update-social-account-token-state.dto'
+import { UpdateSocialAccountMiningStateDto } from './dto/update-social-account-mining-state.dto'
 
 @Controller('user')
 export class UserController {

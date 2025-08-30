@@ -6,6 +6,7 @@ import { ContentModule } from './content/content.module'
 import { MongooseModule } from '@nestjs/mongoose'
 import { ConfigModule } from './config/config.module'
 import { ConfigService } from './config/config.service'
+import { LogModule } from './log/log.module'
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { ConfigService } from './config/config.service'
     }),
     UserModule,
     ContentModule,
+    LogModule,
   ],
   controllers: [AppController],
   providers: [AppService],
