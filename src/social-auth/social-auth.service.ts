@@ -19,7 +19,10 @@ export class SocialAuthService {
         const { userId, provider } = gsaDto
         try {
             const socialAuth = await this.socialAuthModel.findOne(
-                { userId, provider }, { session }).exec()
+                { userId, provider },
+                null,
+                { session: session }
+            ).exec()
             if (!socialAuth) {
                 throw new NotFoundException(`No social auth found for user ${userId} and provider ${provider}`)
             }

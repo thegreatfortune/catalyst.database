@@ -41,7 +41,7 @@ export class SocialService {
             // 并行执行用户查询和检查是否已绑定社交账号
             const [user, existingSocialResults] = await Promise.all([
                 // 查询用户
-                this.userModel.findById(userId, { session }).exec(),
+                this.userModel.findById(userId, null, { session }).exec(),
 
                 // 并行检查社交账号和授权信息
                 Promise.all([
@@ -93,7 +93,11 @@ export class SocialService {
     async getSocialAccount(gsDto: GetSocialDto, session?: ClientSession): Promise<Social> {
         const { userId, provider } = gsDto
         try {
-            const socialAccount = await this.socialModel.findOne({ userId, provider }, { session }).exec()
+            const socialAccount = await this.socialModel.findOne(
+                { userId, provider },
+                null,
+                { session }
+            ).exec()
             if (!socialAccount) {
                 throw new NotFoundException(`No social account found for user ${userId} and provider ${provider}`)
             }

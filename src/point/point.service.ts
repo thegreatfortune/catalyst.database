@@ -21,7 +21,7 @@ export class PointService {
 
             const { userId, transactionType } = updatePointDto
             const pointsChange = TransactionTypePoint[transactionType]
-            const currentPoint = await this.pointModel.findOne({ userId }, { session }).exec()
+            const currentPoint = await this.pointModel.findOne({ userId }, null, { session }).exec()
 
             if (pointsChange < 0 && (!currentPoint || currentPoint.points < Math.abs(pointsChange))) {
                 throw new InsufficientPointsException(Math.abs(pointsChange), currentPoint ? currentPoint.points : 0)
