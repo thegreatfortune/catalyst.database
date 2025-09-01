@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
-import { ClientSession, Model } from 'mongoose'
+import { ClientSession, Model, Types } from 'mongoose'
 import { SocialAuth } from '../schemas/social-auth.schema'
 import { SocialProvider } from '../schemas/user.schema'
 import { CreateSocialAuthDto } from './dto/create-social-auth.dto'
@@ -19,7 +19,10 @@ export class SocialAuthService {
         const { userId, provider } = gsaDto
         try {
             const socialAuth = await this.socialAuthModel.findOne(
-                { userId, provider },
+                {
+                    userId: new Types.ObjectId(userId),
+                    provider
+                },
                 null,
                 { session: session }
             ).exec()

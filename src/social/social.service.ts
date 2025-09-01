@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common'
 import { InjectConnection, InjectModel } from '@nestjs/mongoose'
-import { ClientSession, Connection, Model } from 'mongoose'
+import { ClientSession, Connection, Model, Types } from 'mongoose'
 import { Social, SocialDocument } from '../schemas/social.schema'
 import { Logger } from '@nestjs/common'
 import { CreateSocialDto } from './dto/create-social.dto'
@@ -91,7 +91,7 @@ export class SocialService {
         const { userId, provider } = gsDto
         try {
             const socialAccount = await this.socialModel.findOne(
-                { userId, provider },
+                { userId: new Types.ObjectId(userId), provider },
                 null,
                 { session }
             ).exec()

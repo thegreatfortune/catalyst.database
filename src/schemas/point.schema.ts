@@ -70,6 +70,7 @@ export class RelatedEntity {
 
 @Schema({
     timestamps: true,
+    collection: 'point_transactions',
     toJSON: {
         transform: (_: PointTransactionDocument, ret: any) => {
 
