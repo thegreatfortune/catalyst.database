@@ -38,26 +38,23 @@ export class SocialService {
         session.startTransaction()
 
         try {
-            // 并行执行用户查询和检查是否已绑定社交账号
-            const [user, existingSocialResults] = await Promise.all([
-                // 查询用户
-                this.userModel.findById(userId, null, { session }).exec(),
-
-                // 并行检查社交账号和授权信息
-                Promise.all([
-                    this.getSocialAccount({ userId, provider }, session),
-                    this.socialAuthService.getSocialAuth({ userId, provider }, session)
-                ])
-            ])
+            // 查询用户
+            const user = await this.userModel.findById(userId, null, { session }).exec()
 
             // 检查用户是否存在
             if (!user) {
                 throw new NotFoundException(`User not found with id ${userId}`)
             }
 
+            // 使用Promise.allSettled检查社交账号和授权信息是否存在
+            const results = await Promise.allSettled([
+                this.getSocialAccount({ userId, provider }, session),
+                this.socialAuthService.getSocialAuth({ userId, provider }, session)
+            ])
+
             // 检查是否已经绑定了该社交账号
-            const hasSocial = existingSocialResults[0]
-            const hasSocialAuth = existingSocialResults[1]
+            const hasSocial = results[0].status === 'fulfilled'
+            const hasSocialAuth = results[1].status === 'fulfilled'
 
             if (hasSocial || hasSocialAuth) {
                 throw new BadRequestException(`User already has a ${provider} account bound`)
