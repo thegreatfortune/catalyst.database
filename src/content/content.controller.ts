@@ -1,7 +1,8 @@
-import { BadRequestException, Body, Controller, InternalServerErrorException, NotFoundException, Patch, Post } from '@nestjs/common'
+import { BadRequestException, Body, Controller, Get, InternalServerErrorException, NotFoundException, Patch, Post, Query } from '@nestjs/common'
 import { ContentService } from './content.service'
 import { CreateContentDto } from './dto/create-content.dto'
 import { PublishContentDto, UpdateMetricsDto } from './dto/update-content.dto'
+import { GetContentsDto } from './dto/get-contents.dto'
 
 @Controller('content')
 export class ContentController {
@@ -14,6 +15,12 @@ export class ContentController {
     @Post()
     async create(@Body() createContentDto: CreateContentDto) {
         try {
+
+            if (createContentDto.isNative &&
+                (!createContentDto.providerContentId || !createContentDto.publicMetrics)) {
+                throw new BadRequestException('publicMetrics and providerContentId is required for native content')
+            }
+
             return await this.contentService.create(createContentDto)
         } catch (error) {
             if (error instanceof BadRequestException ||
@@ -43,6 +50,10 @@ export class ContentController {
     @Patch('metrics')
     async updateMetrics(@Body() updateMetricsDto: UpdateMetricsDto) {
         try {
+            // 如果没有提供任何更新数据，抛出异常
+            if (!updateMetricsDto.publicMetrics && !updateMetricsDto.metrics) {
+                throw new BadRequestException('No metrics data provided for update')
+            }
             return this.contentService.updateMetrics(updateMetricsDto)
         } catch (error) {
             if (error instanceof BadRequestException ||
@@ -50,6 +61,15 @@ export class ContentController {
                 throw error
             }
             throw new InternalServerErrorException('Failed to update metrics!')
+        }
+    }
+
+    @Get()
+    async getContents(@Query() gcDto: GetContentsDto) {
+        try {
+            return this.contentService.getContents(gcDto)
+        } catch (error) {
+            throw new InternalServerErrorException('Failed to get contents!')
         }
     }
 }

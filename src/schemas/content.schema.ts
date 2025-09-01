@@ -17,6 +17,7 @@ export enum ContentType {
   COMMENT = 'comment',
   STORY = 'story'
 }
+
 export enum ContentAttribute {
   TEXT = 'text',
   IMAGE = 'image',
@@ -27,6 +28,11 @@ export enum ContentAttribute {
 }
 
 export class Metrics {
+  @Prop({ type: Number, default: 0, description: '匿名评论数' })
+  anonComments: number
+}
+
+export class PublicMetrics {
   @Prop({ type: Number, default: 0, description: '点赞数' })
   likes: number
 
@@ -47,63 +53,38 @@ export class Metrics {
 }
 
 export type ContentDocument = mongoose.HydratedDocument<Content>
- 
+
 @Schema({
   timestamps: true,
   toJSON: {
     transform: (doc: ContentDocument, ret: any) => {
-      ret.id = ret._id?.toString();
-      delete ret._id;
-      delete ret.__v;
-      ret.userId = ret.userId.toString();
-      ret.miningUserId = ret.miningUserId.toString();
-      ret.parentId = ret.parentId?.toString();
-      ret.rootId = ret.rootId?.toString();
-      ret.lastEditedTime = ret.lastEditedTime?.toISOString();
-      ret.scheduledTime = ret.scheduledTime?.toISOString();
-      ret.publishedTime = ret.publishedTime?.toISOString();
-      ret.failedTime = ret.failedTime?.toISOString();
-      ret.createdAt = ret.createdAt?.toISOString();
-      ret.updatedAt = ret.updatedAt?.toISOString();
+
+      ret.id = ret._id?.toString() || ''
+      delete ret._id
+      delete ret.__v
+      ret.createdAt = ret.createdAt?.toISOString()
+      ret.updatedAt = ret.updatedAt?.toISOString()
+
+      ret.userId = ret.userId.toString()
+      ret.miningUserId = ret.miningUserId.toString()
+      ret.parentId = ret.parentId?.toString()
+      ret.rootId = ret.rootId?.toString()
+      ret.lastEditedTime = ret.lastEditedTime?.toISOString()
+      ret.scheduledTime = ret.scheduledTime?.toISOString()
+      ret.publishedTime = ret.publishedTime?.toISOString()
+      ret.failedTime = ret.failedTime?.toISOString()
       if (ret.metrics?.lastUpdated) {
-        ret.metrics.lastUpdated = ret.metrics.lastUpdated.toISOString();
+        ret.metrics.lastUpdated = ret.metrics.lastUpdated.toISOString()
       }
       if (ret.providerData?.twitter?.threadTweets) {
         ret.providerData.twitter.threadTweets = ret.providerData.twitter.threadTweets.map((tweet: any) => ({
           ...tweet,
           tweetId: tweet.tweetId?.toString(),
-        }));
+        }))
       }
-      return ret;
+      return ret
     },
-  },
-  toObject: {
-    transform: (doc: ContentDocument, ret: any) => {
-      ret.id = ret._id?.toString();
-      delete ret._id;
-      delete ret.__v;
-      ret.userId = ret.userId?.toString();
-      ret.miningUserId = ret.miningUserId?.toString();
-      ret.parentId = ret.parentId?.toString();
-      ret.rootId = ret.rootId?.toString();
-      ret.lastEditedTime = ret.lastEditedTime?.toISOString();
-      ret.scheduledTime = ret.scheduledTime?.toISOString();
-      ret.publishedTime = ret.publishedTime?.toISOString();
-      ret.failedTime = ret.failedTime?.toISOString();
-      ret.createdAt = ret.createdAt?.toISOString();
-      ret.updatedAt = ret.updatedAt?.toISOString();
-      if (ret.metrics?.lastUpdated) {
-        ret.metrics.lastUpdated = ret.metrics.lastUpdated.toISOString();
-      }
-      if (ret.providerData?.twitter?.threadTweets) {
-        ret.providerData.twitter.threadTweets = ret.providerData.twitter.threadTweets.map((tweet: any) => ({
-          ...tweet,
-          tweetId: tweet.tweetId?.toString(),
-        }));
-      }
-      return ret;
-    },
-  },
+  }
 })
 export class Content {
   @Prop({
@@ -119,6 +100,13 @@ export class Content {
     ref: 'User'
   })
   miningUserId: string
+
+  @Prop({
+    type: Boolean,
+    default: true,
+    description: '是否为原生内容'
+  })
+  isNative: boolean
 
   @Prop({
     required: true,
@@ -188,9 +176,16 @@ export class Content {
   @Prop({
     required: true,
     type: Metrics,
-    description: '通用互动指标，跨平台统一'
+    description: '平台特定指标'
   })
   metrics: Metrics
+
+  @Prop({
+    required: true,
+    type: PublicMetrics,
+    description: '社媒平台通用互动指标，跨平台统一'
+  })
+  publicMetrics: PublicMetrics
 
   @Prop({
     type: Object,

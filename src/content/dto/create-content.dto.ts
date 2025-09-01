@@ -1,11 +1,14 @@
 // src/database/dto/create-content.dto.ts
 import {
   IsArray,
+  IsBoolean,
   IsEnum,
   IsMongoId,
   IsNotEmpty,
+  IsNumber,
   IsOptional,
   IsString,
+  Min,
   ValidateNested,
 } from 'class-validator'
 import { Type } from 'class-transformer'
@@ -88,6 +91,33 @@ export class MediaItemDto {
   status: string
 }
 
+export class PublicMetricsDto {
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  likes: number
+
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  shares: number
+
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  comments: number
+
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  views: number
+
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  saves: number
+}
+
 export class CreateContentDto {
   @IsString()
   @IsNotEmpty()
@@ -96,6 +126,10 @@ export class CreateContentDto {
   @IsString()
   @IsNotEmpty()
   miningUserId: string
+
+  @IsBoolean()
+  @IsOptional()
+  isNative?: boolean
 
   @IsEnum(ContentType)
   @IsNotEmpty()
@@ -109,6 +143,11 @@ export class CreateContentDto {
   @IsNotEmpty()
   provider: SocialProvider
 
+
+  @IsString()
+  @IsOptional()
+  providerContentId?: string
+
   @IsString()
   @IsNotEmpty()
   originalContent: string
@@ -116,4 +155,10 @@ export class CreateContentDto {
   @IsString()
   @IsOptional()
   generatedContent?: string
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => PublicMetricsDto)
+  publicMetrics?: PublicMetricsDto
 }
+

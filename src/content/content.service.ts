@@ -1,20 +1,23 @@
 // src/database/content.service.ts
-import { Injectable, NotFoundException } from '@nestjs/common'
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common'
 import { InjectConnection, InjectModel } from '@nestjs/mongoose'
-import mongoose, { Connection, Model } from 'mongoose'
-import { Content, ContentDocument, ContentStatus, Metrics } from '../schemas/content.schema'
+import mongoose, { ClientSession, Connection, Model } from 'mongoose'
+import { Content, ContentDocument, ContentStatus, Metrics, PublicMetrics } from '../schemas/content.schema'
 import { CreateContentDto } from '../content/dto/create-content.dto'
 import { PublishContentDto, UpdateMetricsDto } from './dto/update-content.dto'
 import { Logger } from '@nestjs/common'
-import { User } from '../schemas/user.schema'
+import { PointService } from '../point/point.service'
+import { TransactionType } from 'src/schemas/point.schema'
+import { GetContentsDto, SortType } from './dto/get-contents.dto'
+import { GetContentsResponseDto } from './dto/get-contents-response.dto'
 
 @Injectable()
 export class ContentService {
   private readonly logger = new Logger(ContentService.name)
   constructor(
-    @InjectModel(Content.name) private contentModel: Model<Content>,
-    @InjectModel(User.name) private userModel: Model<User>,
     @InjectConnection() private connection: Connection,
+    @InjectModel(Content.name) private contentModel: Model<Content>,
+    private readonly pointService: PointService
   ) { }
 
   async findAll(): Promise<Content[]> {
@@ -93,21 +96,47 @@ export class ContentService {
    * @param createContentDto 
    * @returns 
    */
-  async create(createContentDto: CreateContentDto): Promise<Content> {
+  async create(ccDto: CreateContentDto): Promise<Content> {
+    const { publicMetrics: nativePublicMetrics, providerContentId, ...rest } = ccDto
     try {
+
+      // 检查是否为原始社媒的内容，如果存在增不能重新保存
+      if (ccDto.isNative && providerContentId) {
+        const existContent = await this.contentModel.findOne({
+          providerContentId: providerContentId,
+          isNative: true
+        }).exec()
+        if (existContent) {
+          throw new BadRequestException('Content with providerContentId already exists')
+        }
+      }
+
+      const metrics = new Metrics()
+      metrics.anonComments = 0
+
+      const publicMetrics = new PublicMetrics()
+      if (ccDto.isNative && nativePublicMetrics) {
+        publicMetrics.likes = nativePublicMetrics.likes
+        publicMetrics.shares = nativePublicMetrics.shares
+        publicMetrics.comments = nativePublicMetrics.comments
+        publicMetrics.views = nativePublicMetrics.views
+        publicMetrics.saves = nativePublicMetrics.saves
+        publicMetrics.lastUpdated = new Date()
+      } else {
+        publicMetrics.likes = 0
+        publicMetrics.shares = 0
+        publicMetrics.comments = 0
+        publicMetrics.views = 0
+        publicMetrics.saves = 0
+        publicMetrics.lastUpdated = new Date()
+      }
+
       const contentDoc = new this.contentModel({
-        ...createContentDto,
+        ...rest,
         contentLevel: 0,
-        metrics: {
-          likes: 0,
-          shares: 0,
-          comments: 0,
-          views: 0,
-          saves: 0,
-          engagement: 0,
-          lastUpdated: new Date()
-        },
-        status: ContentStatus.DRAFT,
+        metrics: metrics,
+        publicMetrics: publicMetrics,
+        status: ccDto.isNative ? ContentStatus.PUBLISHED : ContentStatus.DRAFT,
         lastEditedTime: new Date()
       })
       await contentDoc.save()
@@ -120,46 +149,33 @@ export class ContentService {
 
   /**
    * 更新发布状态，及用户socialAccountMiningStates.points
-   * @param publishContentDto 
+   * @param pcDto 
    * @returns
    */
-  async publish(publishContentDto: PublishContentDto): Promise<Content> {
+  async publish(pcDto: PublishContentDto): Promise<Content> {
     const session = await this.connection.startSession()
     session.startTransaction()
 
     try {
       const updatedContent = await this.contentModel
-        .findByIdAndUpdate(publishContentDto.contentId,
+        .findByIdAndUpdate(pcDto.contentId,
           {
             status: ContentStatus.PUBLISHED,
-            providerContentId: publishContentDto.providerContentId,
+            providerContentId: pcDto.providerContentId,
             publishedTime: new Date()
           },
           { new: true, session })
         .exec()
       if (!updatedContent) {
-        throw new NotFoundException(`Content with ID ${publishContentDto.contentId} not found`)
+        throw new NotFoundException(`Content with ID ${pcDto.contentId} not found`)
       }
 
-      const updatedUser = await this.userModel
-        .findOneAndUpdate(
-          {
-            _id: updatedContent.miningUserId,
-            'socialAccountMiningStates.provider': updatedContent.provider
-          },
-          {
-            $inc: {
-              'socialAccountMiningStates.$.points': 1,
-              'socialAccountMiningStates.$.count': 1
-            }
-          },
-          { new: true, session }
-        )
-        .exec()
-
-      if (!updatedUser) {
-        throw new NotFoundException(`User with ID ${updatedContent.miningUserId} not found`)
-      }
+      // 更新点数，记录点数变化日志
+      await this.pointService.upsertPoint({
+        userId: updatedContent.miningUserId,
+        transactionType: TransactionType.POC,
+        reason: 'Publish content',
+      }, session)
 
       await session.commitTransaction()
 
@@ -175,26 +191,64 @@ export class ContentService {
 
   /**
    * 更新互动指标
-   * @param updateMetricsDto 
+   * @param umDto 
    * @returns
    */
-  async updateMetrics(updateMetricsDto: UpdateMetricsDto): Promise<Content> {
+  async updateMetrics(umDto: UpdateMetricsDto): Promise<Content> {
+    const { contentId, publicMetrics, metrics } = umDto
+    const session = await this.connection.startSession()
+    session.startTransaction()
     try {
+      // 构建原子操作对象
+      const updateOperations: any = {}
+
+      // 处理publicMetrics - 全量替换
+      if (publicMetrics) {
+        updateOperations.$set = {
+          'publicMetrics': {
+            ...publicMetrics,
+            lastUpdated: new Date()
+          }
+        }
+      }
+
+      // 处理metrics - 增量更新
+      if (metrics) {
+        // 使用$inc操作符进行增量更新
+        updateOperations.$inc = {
+          'metrics.anonComments': metrics.changedAnonComments
+        }
+      }
+
+      // 执行更新
       const updatedContent = await this.contentModel
         .findByIdAndUpdate(
-          updateMetricsDto.contentId,
-          { metrics: { ...updateMetricsDto.metrics, lastUpdated: new Date() } },
-          { new: true }
+          contentId,
+          updateOperations,
+          { new: true, session }
         )
         .exec()
 
       if (!updatedContent) {
-        throw new NotFoundException(`Content with ID ${updateMetricsDto.contentId} not found`)
+        throw new NotFoundException(`Content with ID ${contentId} not found`)
       }
-      return updatedContent
+
+      // 更新点数，记录点数变化日志
+      await this.pointService.upsertPoint({
+        userId: updatedContent.miningUserId,
+        transactionType: TransactionType.POC,
+        reason: 'Update content metrics',
+      }, session)
+
+      await session.commitTransaction()
+
+      return updatedContent.toJSON()
     } catch (error) {
-      this.logger.error(`Failed to update metrics for content with ID ${updateMetricsDto.contentId}: ${error.message}`)
+      await session.abortTransaction()
+      this.logger.error(`Failed to update metrics for content with ID ${contentId}: ${error.message}`)
       throw error
+    } finally {
+      session.endSession()
     }
   }
 
@@ -204,5 +258,70 @@ export class ContentService {
       throw new NotFoundException(`Content with ID ${id} not found`)
     }
     return deletedContent
+  }
+
+  /**
+   * 获取内容列表，支持分页和排序
+   * @param gcDto 
+   * @returns 
+   */
+  async getContents(gcDto: GetContentsDto) {
+    try {
+      const { limit = 10, page = 1, sort = 'desc', sortType = SortType.createdAt } = gcDto
+      const skip = (page - 1) * limit
+
+      // 构建排序条件
+      const sortOptions: Record<string, 1 | -1> = {}
+      let sortField: string
+
+      // 根据sortType确定排序字段
+      switch (sortType) {
+        case SortType.views:
+          sortField = 'metrics.views'
+          break
+        case SortType.comments:
+          sortField = 'metrics.comments'
+          break
+        case SortType.likes:
+          sortField = 'metrics.likes'
+          break
+        case SortType.createdAt:
+        default:
+          sortField = 'createdAt'
+          break
+      }
+
+      sortOptions[sortField] = sort === 'asc' ? 1 : -1
+
+      // 查询总数
+      const total = await this.contentModel.countDocuments().exec()
+
+      // 查询当前页数据
+      const contents = await this.contentModel
+        .find()
+        .sort(sortOptions)
+        .skip(skip)
+        .limit(limit)
+        .exec()
+
+      // 计算总页数
+      const totalPages = Math.ceil(total / limit)
+
+      // 构建分页响应
+      const response: GetContentsResponseDto = {
+        items: contents.map(content => content.toJSON()),
+        total,
+        page,
+        limit,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1
+      }
+
+      return response
+    } catch (error) {
+      this.logger.error(`Failed to get contents: ${error.message}`)
+      throw error
+    }
   }
 }

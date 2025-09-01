@@ -7,6 +7,9 @@ import { MongooseModule } from '@nestjs/mongoose'
 import { ConfigModule } from './config/config.module'
 import { ConfigService } from './config/config.service'
 import { LogModule } from './log/log.module'
+import { PointModule } from './point/point.module'
+import { SocialAuthModule } from './social-auth/social-auth.module'
+import { SocialModule } from './social/social.module'
 
 @Module({
   imports: [
@@ -18,6 +21,9 @@ import { LogModule } from './log/log.module'
         uri: configService.mongodbConnectionString,
       }),
     }),
+    SocialModule,
+    SocialAuthModule,
+    PointModule,
     UserModule,
     ContentModule,
     LogModule,

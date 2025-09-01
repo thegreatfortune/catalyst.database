@@ -90,134 +90,134 @@ export class AnonymousIdentity {
   updatedAt: Date
 }
 
-export class Metrics {
-  @Prop({
-    type: Number,
-    required: true,
-    min: 0,
-  })
-  followers: number
+// export class Metrics {
+//   @Prop({
+//     type: Number,
+//     required: true,
+//     min: 0,
+//   })
+//   followers: number
 
-  @Prop({
-    type: Number,
-    required: true,
-    min: 0,
-  })
-  following: number
+//   @Prop({
+//     type: Number,
+//     required: true,
+//     min: 0,
+//   })
+//   following: number
 
-  @Prop({
-    type: Number,
-    required: true,
-    min: 0,
-  })
-  totalPosts: number
-}
+//   @Prop({
+//     type: Number,
+//     required: true,
+//     min: 0,
+//   })
+//   totalPosts: number
+// }
 
-export class SocialAccount {
-  @Prop({
-    type: String,
-    enum: SocialProvider,
-    required: true,
-  })
-  provider: SocialProvider
+// export class SocialAccount {
+//   @Prop({
+//     type: String,
+//     enum: SocialProvider,
+//     required: true,
+//   })
+//   provider: SocialProvider
 
-  @Prop({
-    type: String,
-    required: true,
-  })
-  accountId: string
+//   @Prop({
+//     type: String,
+//     required: true,
+//   })
+//   accountId: string
 
-  @Prop({
-    type: String,
-    required: true,
-  })
-  username: string
+//   @Prop({
+//     type: String,
+//     required: true,
+//   })
+//   username: string
 
-  @Prop({
-    type: String
-  })
-  displayName?: string
+//   @Prop({
+//     type: String
+//   })
+//   displayName?: string
 
-  @Prop({
-    type: String
-  })
-  profileUrl?: string
+//   @Prop({
+//     type: String
+//   })
+//   profileUrl?: string
 
-  @Prop({
-    type: Metrics,
-    required: true,
-  })
-  metrics: Metrics
+//   @Prop({
+//     type: Metrics,
+//     required: true,
+//   })
+//   metrics: Metrics
 
-  @Prop({
-    type: Date,
-    required: true,
-  })
-  lastSyncedAt: Date
+//   @Prop({
+//     type: Date,
+//     required: true,
+//   })
+//   lastSyncedAt: Date
 
-  @Prop({
-    type: Boolean,
-    required: true,
-  })
-  isConnected: boolean
-}
+//   @Prop({
+//     type: Boolean,
+//     required: true,
+//   })
+//   isConnected: boolean
+// }
 
-export class SocialAccountMiningState {
-  @Prop({
-    type: String,
-    enum: SocialProvider,
-    required: true,
-  })
-  provider: SocialProvider
+// export class SocialAccountMiningState {
+//   @Prop({
+//     type: String,
+//     enum: SocialProvider,
+//     required: true,
+//   })
+//   provider: SocialProvider
 
-  @Prop({
-    type: Number,
-    required: true,
-    min: 0,
-  })
-  points: number
+//   @Prop({
+//     type: Number,
+//     required: true,
+//     min: 0,
+//   })
+//   points: number
 
-  @Prop({
-    type: Number,
-    required: true,
-    min: 0,
-  })
-  count: number
-}
+//   @Prop({
+//     type: Number,
+//     required: true,
+//     min: 0,
+//   })
+//   count: number
+// }
 
-export class SocialAccountTokenState {
-  @Prop({
-    type: String,
-    enum: SocialProvider,
-    required: true,
-  })
-  provider: SocialProvider
+// export class SocialAccountTokenState {
+//   @Prop({
+//     type: String,
+//     enum: SocialProvider,
+//     required: true,
+//   })
+//   provider: SocialProvider
 
-  @Prop({
-    type: String
-  })
-  accessToken?: string
+//   @Prop({
+//     type: String
+//   })
+//   accessToken?: string
 
-  @Prop({
-    type: String
-  })
-  refreshToken?: string
+//   @Prop({
+//     type: String
+//   })
+//   refreshToken?: string
 
-  @Prop({
-    type: Date
-  })
-  tokenExpiry?: Date
+//   @Prop({
+//     type: Date
+//   })
+//   tokenExpiry?: Date
 
-  @Prop({
-    type: String
-  })
-  scope?: string
+//   @Prop({
+//     type: String
+//   })
+//   scope?: string
 
-  @Prop({
-    type: Date
-  })
-  lastUsedAt?: Date
-}
+//   @Prop({
+//     type: Date
+//   })
+//   lastUsedAt?: Date
+// }
 
 export class RefreshTokenInfo {
   @Prop({
@@ -422,67 +422,67 @@ export class User {
   @Prop()
   anonymousIdentities?: Array<AnonymousIdentity>
 
-  @Prop({
-    type: [
-      {
-        type: Object,
-        // 确保每个平台只能绑定一个账号
-        validate: {
-          validator: function (socialAccounts: SocialAccount[]) {
-            const providers = socialAccounts.map((account) => account.provider)
-            return providers.length === new Set(providers).size
-          },
-          message: '每个社交媒体平台只能绑定一个账号',
-        },
-      },
-    ],
-    description: '用户社交媒体账号信息',
-  })
-  socialAccounts?: SocialAccount[]
+  // @Prop({
+  //   type: [
+  //     {
+  //       type: Object,
+  //       // 确保每个平台只能绑定一个账号
+  //       validate: {
+  //         validator: function (socialAccounts: SocialAccount[]) {
+  //           const providers = socialAccounts.map((account) => account.provider)
+  //           return providers.length === new Set(providers).size
+  //         },
+  //         message: '每个社交媒体平台只能绑定一个账号',
+  //       },
+  //     },
+  //   ],
+  //   description: '用户社交媒体账号信息',
+  // })
+  // socialAccounts?: SocialAccount[]
 
-  @Prop({
-    type: [
-      {
-        type: Object,
-        // 确保每个平台只能绑定一个账号
-        validate: {
-          validator: function (
-            socialAccountTokenStates: SocialAccountTokenState[],
-          ) {
-            const providers = socialAccountTokenStates.map(
-              (account) => account.provider,
-            )
-            return providers.length === new Set(providers).size
-          },
-          message: '每个社交媒体平台只能有1个 socialAccountTokenState',
-        },
-      },
-    ],
-    description: '用户统计信息',
-  })
-  socialAccountTokenStates?: SocialAccountTokenState[]
+  // @Prop({
+  //   type: [
+  //     {
+  //       type: Object,
+  //       // 确保每个平台只能绑定一个账号
+  //       validate: {
+  //         validator: function (
+  //           socialAccountTokenStates: SocialAccountTokenState[],
+  //         ) {
+  //           const providers = socialAccountTokenStates.map(
+  //             (account) => account.provider,
+  //           )
+  //           return providers.length === new Set(providers).size
+  //         },
+  //         message: '每个社交媒体平台只能有1个 socialAccountTokenState',
+  //       },
+  //     },
+  //   ],
+  //   description: '用户统计信息',
+  // })
+  // socialAccountTokenStates?: SocialAccountTokenState[]
 
-  @Prop({
-    type: [
-      {
-        type: Object,
-        // 确保每个平台只能有1个 miningState
-        validate: {
-          validator: function (
-            socialAccountMiningStates: SocialAccountMiningState[],
-          ) {
-            const providers = socialAccountMiningStates.map(
-              (account) => account.provider,
-            )
-            return providers.length === new Set(providers).size
-          },
-          message: '每个社交媒体平台只能有1个 socialAccountMiningState',
-        },
-      },
-    ],
-    description: '用户社交媒体平台的挖矿状态',
-  })
-  socialAccountMiningStates?: SocialAccountMiningState[]
+  // @Prop({
+  //   type: [
+  //     {
+  //       type: Object,
+  //       // 确保每个平台只能有1个 miningState
+  //       validate: {
+  //         validator: function (
+  //           socialAccountMiningStates: SocialAccountMiningState[],
+  //         ) {
+  //           const providers = socialAccountMiningStates.map(
+  //             (account) => account.provider,
+  //           )
+  //           return providers.length === new Set(providers).size
+  //         },
+  //         message: '每个社交媒体平台只能有1个 socialAccountMiningState',
+  //       },
+  //     },
+  //   ],
+  //   description: '用户社交媒体平台的挖矿状态',
+  // })
+  // socialAccountMiningStates?: SocialAccountMiningState[]
 }
 
 export const UserSchema = SchemaFactory.createForClass(User)

@@ -21,7 +21,9 @@ export enum SocialOperationStatus {
     COMPENSATED = 'compensated',
 }
 
-@Schema({ timestamps: true })
+@Schema({
+    timestamps: true
+})
 export class SocialOperationContent {
     @Prop()
     text?: string
@@ -69,7 +71,10 @@ export class SocialOperationCompensation {
     attemptedAt?: Date
 }
 
-@Schema({ timestamps: true })
+@Schema({
+    timestamps: true,
+    collection: 'social_operation_logs',
+})
 export class SocialOperationLog {
     @Prop({ required: true })
     userId: string

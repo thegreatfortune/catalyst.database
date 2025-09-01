@@ -36,6 +36,7 @@ export class CreateUserDto {
 
   @IsNumber()
   @IsNotEmpty()
+  @Type(() => Number)
   chainId: number = 56;
 
   @IsDate()

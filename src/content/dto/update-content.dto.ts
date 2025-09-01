@@ -1,8 +1,7 @@
 // src/database/dto/update-content.dto.ts
-import { IsArray, IsEnum, IsNotEmpty, IsOptional, IsString, ValidateNested } from 'class-validator'
-import { ContentAttribute, ContentStatus, ContentType, Metrics } from '../../schemas/content.schema'
-import { SocialProvider } from '../../schemas/user.schema'
+import { IsNotEmpty, IsNumber, IsOptional, IsString, Min, ValidateNested } from 'class-validator'
 import { Type } from 'class-transformer'
+import { PublicMetricsDto } from './create-content.dto'
 
 export class PublishContentDto {
   @IsString()
@@ -12,6 +11,17 @@ export class PublishContentDto {
   @IsString()
   @IsNotEmpty()
   providerContentId: string
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => PublicMetricsDto)
+  publicMetrics?: PublicMetricsDto
+}
+
+export class MetricsDto {
+  @IsNumber()
+  @Type(() => Number)
+  changedAnonComments: number
 }
 
 export class UpdateMetricsDto {
@@ -19,8 +29,14 @@ export class UpdateMetricsDto {
   @IsNotEmpty()
   contentId: string
 
-  @IsNotEmpty()
+  @IsOptional()
   @ValidateNested()
-  @Type(() => Metrics)
-  metrics: Metrics
+  @Type(() => PublicMetricsDto)
+  publicMetrics?: PublicMetricsDto
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => MetricsDto)
+  metrics?: MetricsDto
 }
+

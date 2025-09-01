@@ -6,14 +6,10 @@ import {
   BadRequestException,
   InternalServerErrorException,
 } from '@nestjs/common'
-import { InjectModel } from '@nestjs/mongoose'
-import { Model } from 'mongoose'
+import { InjectConnection, InjectModel } from '@nestjs/mongoose'
+import { Connection, Model } from 'mongoose'
 import {
   User,
-  SocialAccount,
-  Metrics,
-  SocialAccountTokenState,
-  SocialAccountMiningState,
   Preferences,
   SocialProvider,
   Language,
@@ -24,20 +20,32 @@ import {
 import { CreateUserDto } from './dto/create-user.dto'
 import { UpdateUserDto } from './dto/update-user.dto'
 import { Logger } from '@nestjs/common'
-import { UpdateSocialAccountDto } from './dto/update-social-account.dto'
-import {
-  SocialAccountAddDto,
-  SocialAccountTokenStateAddDto,
-} from './dto/add-social-account.dto'
 import { randomUUID } from 'node:crypto'
-import { UpdateSocialAccountTokenStateDto } from './dto/update-social-account-token-state.dto'
-import { Types } from 'mongoose'
-import { UpdateSocialAccountMiningStateDto } from './dto/update-social-account-mining-state.dto'
+import { Types, PipelineStage } from 'mongoose'
+import { UserInfo } from './dto/reponse.dto'
+import { Point } from '../schemas/point.schema'
+import { Social } from '../schemas/social.schema'
+
+export interface RandomUsersAggregationResult {
+  _id: null
+  totalWeight: number
+  users: Array<WeightedUser>
+}
+
+export interface WeightedUser {
+  _id: Types.ObjectId
+  weight: number
+}
 
 @Injectable()
 export class UserService {
   private readonly logger = new Logger(UserService.name);
-  constructor(@InjectModel(User.name) private userModel: Model<User>) { }
+  constructor(
+    @InjectModel(User.name) private userModel: Model<User>,
+    @InjectModel(Point.name) private pointModel: Model<Point>,
+    @InjectModel(Social.name) private socialModel: Model<Social>,
+    @InjectConnection() private connection: Connection,
+  ) { }
 
 
   /**
@@ -78,26 +86,53 @@ export class UserService {
     }
   }
 
-  async findById(id: string): Promise<User> {
+  async findById(id: string): Promise<UserInfo> {
     try {
+      // 获取用户基本信息
       const user = await this.userModel.findById(id).exec()
       if (!user) {
         throw new NotFoundException(`User not found with id ${id}`)
       }
+
       // 在返回用户数据前排序匿名身份
       if (user.anonymousIdentities && user.anonymousIdentities.length > 0) {
+
+        user.anonymousIdentities = user.anonymousIdentities.filter(
+          identity => !identity.isDeleted
+        )
+
         user.anonymousIdentities.sort((a, b) =>
           new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
         )
       }
-      return user
+
+      // 使用 Promise.all 并行获取积分和社交数据
+      const [points, socials] = await Promise.all([
+        // 查询用户积分
+        this.pointModel.findOne({ userId: id }).exec(),
+        // 查询用户社交账号
+        this.socialModel.find({ userId: id }).exec()
+      ])
+
+      // 构建并返回 UserInfo 对象
+      return {
+        ...user.toJSON(),
+        socials: socials.map(s => {
+          const { userId, ...social } = s.toJSON()
+          return social
+        }) || [],
+        points: points ? (() => {
+          const { userId, ...pointsData } = points.toJSON()
+          return pointsData
+        })() : { points: 0, count: 0 }
+      }
     } catch (error) {
       this.logger.error('使用 ID 查找用户失败', error)
       throw error
     }
   }
 
-  async findByWalletAddress(address: string, chainId: number): Promise<User> {
+  async findByWalletAddress(address: string, chainId: number): Promise<UserInfo> {
     try {
       const user = await this.userModel
         .findOne({ walletAddress: address }).exec()
@@ -118,9 +153,168 @@ export class UserService {
           new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
         )
       }
-      return user
+
+      // 使用 Promise.all 并行获取积分和社交数据
+      const [points, socials] = await Promise.all([
+        // 查询用户积分
+        this.pointModel.findOne({ userId: user._id.toString() }).exec(),
+        // 查询用户社交账号
+        this.socialModel.find({ userId: user._id.toString() }).exec()
+      ])
+
+      // 构建并返回 UserInfo 对象
+      return {
+        ...user.toJSON(),
+        socials: socials.map(s => {
+          const { userId, ...social } = s.toJSON()
+          return social
+        }) || [],
+        points: points ? (() => {
+          const { userId, ...pointsData } = points.toJSON()
+          return pointsData
+        })() : { points: 0, count: 0 }
+      }
+
+
     } catch (error) {
       this.logger.error('使用 wallet address 查找用户失败', error)
+      throw error
+    }
+  }
+
+  async findUsersByChainType(chainType: string): Promise<User[]> {
+    try {
+      return this.userModel.find({ chainType }).exec()
+    } catch (error) {
+      this.logger.error('使用 Chain Type 查询用户失败', error)
+      throw error
+    }
+  }
+
+  async findRandomUserId(excludedUserId: string, provider: SocialProvider): Promise<string> {
+    try {
+      this.logger.log(`开始基于权重随机选择${provider}平台用户，排除用户ID: ${excludedUserId}`)
+
+      // 确保将字符串ID转换为ObjectId进行比较
+      const userObjectId = new Types.ObjectId(excludedUserId)
+
+      // 使用聚合管道查询符合条件的用户
+      // 1. 查找已有授权信息的用户
+      // 2. 排除指定的用户ID
+      // 3. 基于最后更新时间计算权重
+      const pipeline: PipelineStage[] = [
+        {
+          $lookup: {
+            from: 'socialauths', // SocialAuth 集合名称
+            let: { userId: '$_id' },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $eq: ['$userId', '$$userId'] },
+                      { $eq: ['$provider', provider] },
+                      {
+                        $cond: {
+                          if: { $eq: ['$provider', SocialProvider.X] },
+                          then: {
+                            $and: [
+                              { $ne: ['$refreshToken', ''] },
+                              { $ne: ['$refreshToken', null] },
+                              { $ifNull: ['$refreshToken', false] }
+                            ]
+                          },
+                          else: {
+                            $and: [
+                              { $ne: ['$accessToken', ''] },
+                              { $ne: ['$accessToken', null] },
+                              { $ifNull: ['$accessToken', false] }
+                            ]
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            ],
+            as: 'authInfo'
+          }
+        },
+        {
+          $match: {
+            _id: { $ne: userObjectId },
+            'authInfo.0': { $exists: true }
+          }
+        },
+        {
+          $addFields: {
+            weight: {
+              $max: [
+                1,
+                {
+                  $divide: [
+                    {
+                      $subtract: [
+                        new Date(),
+                        {
+                          $ifNull: [
+                            { $arrayElemAt: ['$authInfo.updatedAt', 0] },
+                            new Date(0), // 如果updatedAt不存在，使用1970年
+                          ],
+                        },
+                      ],
+                    },
+                    1000 * 60, // 转换为分钟
+                  ],
+                },
+              ],
+            },
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            totalWeight: { $sum: '$weight' },
+            users: { $push: { _id: '$_id', weight: '$weight' } }
+          }
+        }
+      ]
+
+      const result = await this.userModel.aggregate(pipeline).exec()
+
+      if (!result.length || result[0].totalWeight === 0) {
+        this.logger.warn(`没有可用的${provider}平台用户或总权重为0`)
+        throw new NotFoundException(`没有可用的${provider}平台用户或总权重为0`)
+      }
+
+      const { totalWeight, users } = result[0] as RandomUsersAggregationResult
+
+      const randomNumber = Math.random() * totalWeight
+
+      let cumulativeWeight = 0
+      let selectedUser: WeightedUser | null = null
+
+      for (const user of users) {
+        cumulativeWeight += user.weight
+        if (cumulativeWeight >= randomNumber) {
+          selectedUser = user
+          break
+        }
+      }
+
+      if (!selectedUser) {
+        this.logger.warn(`未能找到符合条件的${provider}平台用户`)
+        throw new NotFoundException(`未能找到符合条件的${provider}平台用户`)
+      }
+
+      this.logger.log(`成功选择用户ID: ${selectedUser._id.toString()}`)
+
+      // 返回符合 RandomUserResponseDto 的数据结构
+      return selectedUser._id.toString()
+
+    } catch (error) {
+      this.logger.error(`加权随机选择${provider}平台用户失败`, error)
       throw error
     }
   }
@@ -208,504 +402,6 @@ export class UserService {
     } catch (error) {
       this.logger.error('更新用户失败', error)
       throw error
-    }
-  }
-
-  async remove(id: string): Promise<User> {
-    try {
-      const user = await this.userModel.findByIdAndDelete(id).exec()
-      if (!user) {
-        throw new NotFoundException(`User not found with id ${id}`)
-      }
-      return user
-    } catch (error) {
-      this.logger.error('删除用户失败', error)
-      throw error
-    }
-  }
-
-  async findUsersByChainType(chainType: string): Promise<User[]> {
-    try {
-      return this.userModel.find({ chainType }).exec()
-    } catch (error) {
-      this.logger.error('使用 Chain Type 查询用户失败', error)
-      throw error
-    }
-  }
-
-  async addSocialAccount(
-    userId: string,
-    socialProvider: SocialProvider,
-    socialAccountDto: SocialAccountAddDto,
-    socialAccountTokenStateDto: SocialAccountTokenStateAddDto,
-  ): Promise<User> {
-    try {
-      const user = await this.userModel.findById(userId).exec()
-
-      if (!user) {
-        throw new NotFoundException('用户不存在')
-      }
-
-      if (
-        !user.socialAccounts ||
-        !user.socialAccountTokenStates ||
-        !user.socialAccountMiningStates
-      ) {
-        user.socialAccounts = []
-        user.socialAccountTokenStates = []
-        user.socialAccountMiningStates = []
-      }
-
-      const existingAccountIndex = user.socialAccounts.findIndex(
-        (account) => account.provider === socialProvider,
-      )
-
-      if (existingAccountIndex === -1) {
-        const metrics: Metrics = {
-          followers: socialAccountDto.metrics.followers,
-          following: socialAccountDto.metrics.following,
-          totalPosts: socialAccountDto.metrics.totalPosts,
-        }
-        const socialAccount: SocialAccount = {
-          provider: socialProvider,
-          accountId: socialAccountDto.accountId,
-          username: socialAccountDto.username,
-          displayName: socialAccountDto.displayName,
-          profileUrl: socialAccountDto.profileUrl,
-          metrics: metrics,
-          lastSyncedAt: socialAccountDto.lastSyncedAt,
-          isConnected: socialAccountDto.isConnected,
-        }
-
-        const socialAccountTokenState: SocialAccountTokenState = {
-          provider: socialProvider,
-          accessToken: socialAccountTokenStateDto.accessToken,
-          refreshToken: socialAccountTokenStateDto.refreshToken,
-          tokenExpiry: socialAccountTokenStateDto.tokenExpiry,
-          scope: socialAccountTokenStateDto.scope,
-        }
-
-        const socialAccountMiningState: SocialAccountMiningState = {
-          provider: socialProvider,
-          points: 0,
-          count: 0,
-        }
-
-        user.socialAccounts.push(socialAccount)
-        user.socialAccountTokenStates.push(socialAccountTokenState)
-        user.socialAccountMiningStates.push(socialAccountMiningState)
-      } else {
-        throw new BadRequestException('用户已绑定该社交账号')
-      }
-
-      return user.save()
-    } catch (error) {
-      this.logger.error('添加用户 Social Account 失败', error)
-      throw error
-    }
-  }
-
-  async removeSocialAccount(userId: string, socialProvider: SocialProvider): Promise<User> {
-    try {
-      const user = await this.userModel.findById(userId).exec()
-
-      if (!user) {
-        throw new NotFoundException('用户不存在')
-      }
-
-      if (!user.socialAccounts) {
-        throw new NotFoundException(`未找到绑定的${socialProvider}账号`)
-      }
-
-      const initialLength = user.socialAccounts.length
-      user.socialAccounts = user.socialAccounts.filter(
-        (account) => account.provider !== socialProvider,
-      )
-
-      if (user.socialAccounts.length === initialLength) {
-        throw new NotFoundException(`未找到绑定的${socialProvider}账号`)
-      }
-
-      return user.save()
-    } catch (error) {
-      this.logger.error('删除用户 Social Account 失败', error)
-      throw error
-    }
-  }
-
-  async findUserBySocialAccount(
-    socialProvider: SocialProvider,
-    accountId: string,
-  ): Promise<User> {
-    try {
-      const user = await this.userModel
-        .findOne({
-          socialAccounts: {
-            $elemMatch: {
-              provider: socialProvider,
-              accountId,
-            },
-          },
-        })
-        .exec()
-      if (!user) {
-        throw new NotFoundException(
-          `User not found with social account ${socialProvider}:${accountId}`,
-        )
-      }
-      return user
-    } catch (error) {
-      this.logger.error('使用 Social Account 查找用户失败', error)
-      throw error
-    }
-  }
-
-  async updateSocialAccount(
-    userId: string,
-    socialProvider: SocialProvider,
-    updateData: UpdateSocialAccountDto,
-  ): Promise<User> {
-    try {
-      const user = await this.userModel.findById(userId).exec()
-
-      if (!user) {
-        throw new NotFoundException('用户不存在')
-      }
-
-      if (
-        !user.socialAccounts ||
-        !user.socialAccountTokenStates ||
-        !user.socialAccountMiningStates
-      ) {
-        throw new NotFoundException(`未找到绑定的${socialProvider}账号`)
-      }
-
-      const accountIndex = user.socialAccounts.findIndex(
-        (account) => account.provider === socialProvider,
-      )
-
-      const tokenStateIndex = user.socialAccountTokenStates.findIndex(
-        (tokenState) => tokenState.provider === socialProvider,
-      )
-
-      const miningStateIndex = user.socialAccountMiningStates.findIndex(
-        (miningState) => miningState.provider === socialProvider,
-      )
-
-      if (updateData.socialAccount) {
-        if (accountIndex === -1) {
-          throw new NotFoundException(`未找到绑定的${socialProvider}账号`)
-        }
-        user.socialAccounts[accountIndex] = {
-          ...user.socialAccounts[accountIndex],
-          ...updateData.socialAccount,
-        }
-
-        if (updateData.socialAccount.metrics) {
-          user.socialAccounts[accountIndex].metrics = {
-            ...user.socialAccounts[accountIndex].metrics,
-            ...updateData.socialAccount.metrics,
-          }
-        }
-      }
-
-      if (updateData.socialAccountTokenState) {
-        if (tokenStateIndex === -1) {
-          throw new NotFoundException(`未找到绑定的${socialProvider}账号`)
-        }
-        user.socialAccountTokenStates[tokenStateIndex] = {
-          ...user.socialAccountTokenStates[tokenStateIndex],
-          ...updateData.socialAccountTokenState,
-        }
-      }
-
-      if (updateData.socialAccountMiningState) {
-        if (miningStateIndex === -1) {
-          throw new NotFoundException(`未找到绑定的${socialProvider}账号`)
-        }
-        user.socialAccountMiningStates[miningStateIndex] = {
-          ...user.socialAccountMiningStates[miningStateIndex],
-          ...updateData.socialAccountMiningState,
-        }
-      }
-
-      return user.save()
-    } catch (error) {
-      this.logger.error('更新用户社交账号失败', error)
-      throw error
-    }
-  }
-
-  async findRandomUserIdWithToken(
-    userId: string,
-    provider: SocialProvider,
-  ): Promise<string> {
-    try {
-      this.logger.log(`开始基于权重随机选择${provider}平台用户，排除用户ID: ${userId}`)
-
-      // 确保将字符串ID转换为ObjectId进行比较
-      const userObjectId = new Types.ObjectId(userId)
-
-      const matchCondition = {
-        _id: { $ne: userObjectId }, // 使用ObjectId对象进行比较
-        socialAccounts: {
-          $elemMatch: {
-            provider,
-            isConnected: true,
-          },
-        },
-        socialAccountTokenStates: {
-          $elemMatch: {
-            provider,
-            ...(provider === SocialProvider.X
-              ? { refreshToken: { $exists: true, $ne: '' } }
-              : { accessToken: { $exists: true, $ne: '' } }),
-          },
-        },
-      }
-
-      const totalWeightResult = await this.userModel
-        .aggregate([
-          { $match: matchCondition },
-          { $unwind: '$socialAccountTokenStates' },
-          { $match: { 'socialAccountTokenStates.provider': provider } },
-          {
-            $addFields: {
-              weight: {
-                $max: [
-                  1,
-                  {
-                    $divide: [
-                      {
-                        $subtract: [
-                          new Date(),
-                          {
-                            $ifNull: [
-                              '$socialAccountTokenStates.lastUsedAt',
-                              new Date(0), // 如果lastUsedAt不存在，使用1970年
-                            ],
-                          },
-                        ],
-                      },
-                      1000 * 60, // 转换为分钟
-                    ],
-                  },
-                ],
-              },
-            },
-          },
-          {
-            $group: {
-              _id: null,
-              totalWeight: { $sum: '$weight' },
-            },
-          },
-        ])
-        .exec()
-
-      const totalWeight = totalWeightResult[0]?.totalWeight || 0
-      if (totalWeight === 0) {
-        this.logger.warn(`没有可用的${provider}平台用户或总权重为0`)
-        throw new NotFoundException(`没有可用的${provider}平台用户或总权重为0`)
-      }
-
-      const randomNumber = Math.random() * totalWeight
-      this.logger.debug(`总权重: ${totalWeight}, 随机数: ${randomNumber}`)
-
-      const randomUsers = await this.userModel
-        .aggregate([
-          { $match: matchCondition },
-          { $unwind: '$socialAccountTokenStates' },
-          { $match: { 'socialAccountTokenStates.provider': provider } },
-          {
-            $addFields: {
-              weight: {
-                $max: [
-                  1,
-                  {
-                    $divide: [
-                      {
-                        $subtract: [
-                          new Date(),
-                          {
-                            $ifNull: [
-                              '$socialAccountTokenStates.lastUsedAt',
-                              new Date(0),
-                            ],
-                          },
-                        ],
-                      },
-                      1000 * 60, // 转换为分钟
-                    ],
-                  },
-                ],
-              },
-            },
-          },
-          { $sort: { _id: 1 } },
-          {
-            $setWindowFields: {
-              partitionBy: null,
-              sortBy: { _id: 1 },
-              output: {
-                cumulativeWeight: {
-                  $sum: '$weight',
-                  window: { documents: ['unbounded', 'current'] },
-                },
-              },
-            },
-          },
-          { $match: { cumulativeWeight: { $gte: randomNumber } } },
-          { $limit: 1 },
-          {
-            $project: {
-              _id: 1,
-            },
-          },
-        ])
-        .exec()
-
-      if (randomUsers && randomUsers.length > 0) {
-        this.logger.log(`成功选择用户ID: ${randomUsers[0]._id.toString()}`)
-        return randomUsers[0]._id.toString()
-      }
-
-      this.logger.warn(`未能找到符合条件的${provider}平台用户`)
-      throw new NotFoundException(`未能找到符合条件的${provider}平台用户`)
-    } catch (error) {
-      this.logger.error(`加权随机选择${provider}平台用户失败`, error)
-      throw error
-    }
-  }
-
-  async updateSocialAccountLastUsedAt(
-    userId: string,
-    provider: SocialProvider,
-  ): Promise<User> {
-    try {
-      this.logger.log(`更新用户 ${userId} 的 ${provider} 账号最后使用时间`)
-
-      const result = await this.userModel
-        .findOneAndUpdate(
-          {
-            _id: userId,
-            'socialAccountTokenStates.provider': provider,
-          },
-          {
-            $set: {
-              'socialAccountTokenStates.$.lastUsedAt': new Date(),
-            },
-          },
-          { new: true },
-        )
-        .exec()
-
-      if (!result) {
-        throw new NotFoundException(
-          `未找到用户 ${userId} 或其 ${provider} 账号`,
-        )
-      }
-
-      return result
-    } catch (error) {
-      this.logger.error(
-        `更新用户 ${userId} 的 ${provider} 账号最后使用时间失败`,
-        error,
-      )
-      throw error
-    }
-  }
-
-  async updateSocialAccountTokenState(
-    userId: string,
-    provider: SocialProvider,
-    updateSocialAccountTokenStateDto: UpdateSocialAccountTokenStateDto
-  ): Promise<User> {
-    try {
-      this.logger.log(`更新用户 ${userId} 的 ${provider} 账号令牌状态`)
-
-      const user = await this.userModel.findById(userId).exec()
-      if (!user) {
-        throw new NotFoundException(`未找到ID为 ${userId} 的用户`)
-      }
-
-      // 检查用户是否已经有该平台的令牌状态
-      let tokenStateIndex = -1
-      if (user.socialAccountTokenStates) {
-        tokenStateIndex = user.socialAccountTokenStates.findIndex(
-          (state) => state.provider === provider
-        )
-      } else {
-        user.socialAccountTokenStates = []
-      }
-
-      // 如果存在则更新，不存在则创建
-      const tokenState: SocialAccountTokenState = {
-        provider,
-        ...updateSocialAccountTokenStateDto,
-        lastUsedAt: new Date(),
-      }
-
-      if (tokenStateIndex >= 0) {
-        user.socialAccountTokenStates[tokenStateIndex] = tokenState
-      } else {
-        user.socialAccountTokenStates.push(tokenState)
-      }
-
-      await user.save()
-      return user.toJSON()
-    } catch (error) {
-      this.logger.error(
-        `更新用户 ${userId} 的 ${provider} 账号令牌状态失败`,
-        error
-      )
-      throw error
-    }
-  }
-
-  async updateSocialAccountMiningState(
-    userId: string,
-    provider: SocialProvider,
-    updateData: UpdateSocialAccountMiningStateDto
-  ): Promise<User> {
-    try {
-      this.logger.log(`更新用户 ${userId} 的 ${provider} 账号积分状态`)
-
-      // 查找用户
-      const user = await this.userModel.findById(userId).exec()
-      if (!user) {
-        throw new NotFoundException(`未找到ID为 ${userId} 的用户`)
-      }
-
-      if (!user.socialAccountMiningStates) {
-        user.socialAccountMiningStates = []
-      }
-
-      // 查找对应的社交账号积分状态
-      const miningStateIndex = user.socialAccountMiningStates?.findIndex(
-        miningState => miningState.provider === provider
-      )
-
-      // 如果没有找到对应的社交账号积分状态，则创建一个新的
-      if (miningStateIndex === -1) {
-        // 创建新的积分状态
-        user.socialAccountMiningStates.push({
-          provider,
-          points: updateData.points,
-          count: updateData.count
-        })
-      } else {
-        // 更新现有积分状态
-        user.socialAccountMiningStates[miningStateIndex].points += updateData.points
-        user.socialAccountMiningStates[miningStateIndex].count += updateData.count
-      }
-
-      await user.save()
-      return user
-    } catch (error) {
-      throw new InternalServerErrorException(
-        `更新用户 ${userId} 的 ${provider} 账号挖掘状态失败: ${error.message}`,
-      )
     }
   }
 

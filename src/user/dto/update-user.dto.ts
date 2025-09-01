@@ -25,6 +25,7 @@ export class UpdateUIDto {
 export class UpdateAiDto {
     @IsOptional()
     @IsBoolean()
+    @Type(() => Boolean)
     enabled?: boolean
 }
 export class UpdatePreferencesDto {
@@ -54,15 +55,16 @@ export class AnonymousIdentityDto {
 
     @IsOptional()
     @ValidateNested()
-    @Type(() => Array<string>)
     preferences?: string[]
 
     @IsOptional()
     @IsBoolean()
+    @Type(() => Boolean)
     isActive?: boolean
 
     @IsOptional()
     @IsBoolean()
+    @Type(() => Boolean)
     isDeleted?: boolean
 }
 
@@ -86,6 +88,6 @@ export class UpdateUserDto {
 
     @IsOptional()
     @ValidateNested()
-    @Type(() => Array<AnonymousIdentityDto>)
+    @Type(() => AnonymousIdentityDto)
     anonymousIdentities?: Array<AnonymousIdentityDto>
 }
