@@ -1,9 +1,11 @@
-import { BadRequestException, Body, Controller, Get, InternalServerErrorException, NotFoundException, Post, Query } from '@nestjs/common'
+import { BadRequestException, Body, Controller, Delete, Get, InternalServerErrorException, NotFoundException, Patch, Post, Query } from '@nestjs/common'
 import { SocialService } from './social.service'
 import { CreateSocialDto } from './dto/create-social.dto'
 import { BindSocialAccountDto } from './dto/bind-social-account.dto'
 import { GetSocialDto } from './dto/get-social.dto'
-import { Social } from '../schemas/social.schema'
+import { Social, XUser } from '../schemas/social.schema'
+import { RemoveSocialDto } from './dto/remove-social.dto'
+import { UpdateSocialDto } from './dto/update-social.dto'
 
 @Controller('user/social')
 export class SocialController {
@@ -11,15 +13,15 @@ export class SocialController {
 
     /**
      * 绑定社交账号
-     * @param bindSocialAccountDto 绑定社交账号DTO
+     * @param bindSocialDto 绑定社交账号DTO
      * @returns 
      */
     @Post()
-    async bindSocialAccount(
-        @Body() bindSocialAccountDto: BindSocialAccountDto,
+    async bindSocial(
+        @Body() bsDto: BindSocialAccountDto,
     ) {
-        const csDto = bindSocialAccountDto.csDto
-        const csaDto = bindSocialAccountDto.csaDto
+        const csDto = bsDto.csDto
+        const csaDto = bsDto.csaDto
 
         if (csDto.userId !== csaDto.userId
             || csDto.provider !== csaDto.provider
@@ -41,16 +43,60 @@ export class SocialController {
     }
 
     /**
+     * 解绑社交账号
+     * @param rsDto 解绑社交账号DTO
+     * @returns 
+     */
+    @Delete()
+    async unbindSocial(
+        @Body() rsDto: RemoveSocialDto,
+    ) {
+        try {
+            return this.socialService.unbindSocial(rsDto)
+        } catch (error) {
+            if (
+                error instanceof NotFoundException ||
+                error instanceof BadRequestException
+            ) {
+                throw error
+            }
+            throw new InternalServerErrorException('解绑社交账号失败')
+        }
+    }
+
+    /**
+     * 更新社交账号
+     * @param usDto 更新社交账号DTO
+     * @returns 
+     */
+    @Patch()
+    async updateSocial(
+        @Body() usDto: UpdateSocialDto,
+    ) {
+        try {
+            return this.socialService.updateSocial(usDto)
+        } catch (error) {
+            if (
+                error instanceof NotFoundException ||
+                error instanceof BadRequestException
+            ) {
+                throw error
+            }
+            throw new InternalServerErrorException('更新社交账号失败')
+        }
+    }
+
+    /**
      * 获取社交账号
      * @param gsDto 获取社交账号DTO
      * @returns 
      */
     @Get()
-    async getSocialAccount(
+    async getSocial(
         @Query() gsDto: GetSocialDto,
-    ): Promise<Social> {
+    ): Promise<XUser> {
         try {
-            return await this.socialService.getSocialAccount(gsDto)
+            return await this.socialService.getSocial(gsDto)
         } catch (error) {
             if (
                 error instanceof NotFoundException ||

@@ -1,9 +1,56 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose"
 import mongoose from "mongoose"
 import { SocialProvider } from "./user.schema"
+import { IsDate, IsNotEmpty, IsString } from "class-validator"
+import { Type } from "class-transformer"
 
 
 export type SocialAuthDocument = mongoose.HydratedDocument<SocialAuth>
+export type XAuthDocument = mongoose.HydratedDocument<XAuth>
+
+@Schema({
+    _id: false,
+    toJSON: {
+        transform: (_: XAuthDocument, ret: any) => {
+            ret.tokenExpiry = ret.tokenExpiry.toISOString()
+            return ret
+        }
+    }
+})
+export class XAuth {
+    @Prop({
+        type: String,
+        required: true,
+    })
+    @IsString()
+    @IsNotEmpty()
+    accessToken: string
+
+    @Prop({
+        type: String,
+        required: true,
+    })
+    @IsString()
+    @IsNotEmpty()
+    refreshToken: string
+
+    @Prop({
+        type: Date,
+        required: true,
+    })
+    @IsDate()
+    @IsNotEmpty()
+    @Type(() => Date)
+    tokenExpiry: Date
+
+    @Prop({
+        type: String,
+        required: true,
+    })
+    @IsString()
+    @IsNotEmpty()
+    scope: string
+}
 
 @Schema({
     timestamps: true,
@@ -21,9 +68,13 @@ export type SocialAuthDocument = mongoose.HydratedDocument<SocialAuth>
             if (ret.scope) {
                 ret.scope = (ret.scope as string).split(',')
             }
+            if (ret.tokenExpiry) {
+                ret.tokenExpiry = ret.tokenExpiry.toISOString()
+            }
             return ret
         },
     },
+    discriminatorKey: 'provider'
 })
 export class SocialAuth {
 
@@ -44,25 +95,13 @@ export class SocialAuth {
     provider: SocialProvider
 
     @Prop({
-        type: String
+        type: mongoose.Schema.Types.Mixed,
+        description: '平台用户原始Auth数据',
+        required: true,
     })
-    accessToken?: string
-
-    @Prop({
-        type: String
-    })
-    refreshToken?: string
-
-    @Prop({
-        type: Date
-    })
-    tokenExpiry?: Date
-
-    @Prop({
-        type: String
-    })
-    scope?: string
+    details: XAuth
 }
 export const SocialAuthSchema = SchemaFactory.createForClass(SocialAuth)
+export const XAuthSchema = SchemaFactory.createForClass(XAuth)
 // 添加复合索引以优化查询
 SocialAuthSchema.index({ userId: 1, provider: 1 })

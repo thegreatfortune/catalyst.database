@@ -189,90 +189,9 @@ export class Content {
 
   @Prop({
     type: Object,
-    description: '平台特定指标'
+    description: '平台原始内容'
   })
-  providerData: {
-    twitter?: {
-      tweetThreadId?: string // 保留作为主推文ID
-      threadTweets?: {
-        // 新增：存储线程中所有推文
-        tweetId: string
-        position: number // 在线程中的位置
-        content?: string // 可选存储内容副本
-        platformMetrics?: {
-          // 平台特定指标，改名以区分通用指标
-          likes: number
-          retweets: number
-          quotes: number
-          replies: number
-          impressions: number // Twitter特有
-        }
-        status: string // 发布状态
-      }[]
-      pollOptions?: string[]
-      sensitiveContent?: boolean
-      metrics?: {
-        // Twitter平台特定指标
-        likes: number
-        retweets: number
-        quotes: number
-        replies: number
-        impressions: number
-      }
-    }
-    instagram?: {
-      carousel?: boolean
-      filters?: string[]
-      location?: Record<string, any>
-      taggedUsers?: string[]
-      metrics?: {
-        // Instagram平台特定指标
-        likes: number
-        comments: number
-        saves: number
-        shares: number
-        reach: number
-        impressions: number
-        storyReplies?: number
-        storyTaps?: number
-        storyExits?: number
-      }
-    }
-    rednote?: {
-      topics?: string[]
-      goodsLinks?: string[]
-      collectionId?: string
-      metrics?: {
-        // 红薯平台特定指标
-        likes: number
-        comments: number
-        collects: number
-        shares: number
-        views: number
-      }
-    }
-    facebook?: {
-      privacy?: string
-      feelingActivity?: Record<string, any>
-      taggedPeople?: string[]
-      metrics?: {
-        // Facebook平台特定指标
-        reactions: {
-          like: number
-          love: number
-          haha: number
-          wow: number
-          sad: number
-          angry: number
-          care: number
-        }
-        comments: number
-        shares: number
-        reach: number
-        engagement: number
-      }
-    }
-  }
+  providerContentRawData: Record<SocialProvider, any>
 
   // @Prop({ type: [Object] })
   // media: {

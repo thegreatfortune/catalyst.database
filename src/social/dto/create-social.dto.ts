@@ -1,23 +1,9 @@
 import { Type } from "class-transformer"
 import { IsBoolean, IsDate, IsEnum, IsMongoId, IsNotEmpty, IsNumber, IsOptional, IsString, ValidateNested } from "class-validator"
 import { SocialProvider } from "../../schemas/user.schema"
+import { XUser } from "src/schemas/social.schema"
+import { OmitType, PartialType } from "@nestjs/swagger"
 
-export class MetricsDto {
-    @IsNumber()
-    @IsNotEmpty()
-    @Type(() => Number)
-    followers: number
-
-    @IsNumber()
-    @IsNotEmpty()
-    @Type(() => Number)
-    following: number
-
-    @IsNumber()
-    @IsNotEmpty()
-    @Type(() => Number)
-    totalPosts: number
-}
 
 export class CreateSocialDto {
 
@@ -30,33 +16,14 @@ export class CreateSocialDto {
     @IsNotEmpty()
     provider: SocialProvider
 
-    @IsNotEmpty()
-    @IsString()
-    accountId: string
-
-    @IsNotEmpty()
-    @IsString()
-    username: string
-
-    @IsOptional()
-    @IsString()
-    displayName?: string
-
-    @IsString()
-    @IsOptional()
-    profileUrl?: string
-
-    @ValidateNested()
-    @Type(() => MetricsDto)
-    metrics: MetricsDto
-
-    @IsNotEmpty()
-    @IsDate()
-    @Type(() => Date)
-    lastSyncedAt: Date
-
-    @IsNotEmpty()
-    @IsBoolean()
-    @Type(() => Boolean)
-    isConnected: boolean = true;
+    @Type(() => Object, {
+        // 根据provider字段动态确定details的类型
+        discriminator: {
+            property: 'provider',
+            subTypes: [
+                { value: XUser, name: SocialProvider.X },
+            ]
+        }
+    })
+    details: XUser
 }

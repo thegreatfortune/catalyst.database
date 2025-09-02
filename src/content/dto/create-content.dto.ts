@@ -6,6 +6,7 @@ import {
   IsMongoId,
   IsNotEmpty,
   IsNumber,
+  IsObject,
   IsOptional,
   IsString,
   Min,
@@ -143,7 +144,6 @@ export class CreateContentDto {
   @IsNotEmpty()
   provider: SocialProvider
 
-
   @IsString()
   @IsOptional()
   providerContentId?: string
@@ -160,5 +160,9 @@ export class CreateContentDto {
   @ValidateNested()
   @Type(() => PublicMetricsDto)
   publicMetrics?: PublicMetricsDto
+
+  @IsOptional()
+  @IsObject()
+  providerContentRawData?: Record<SocialProvider, any>
 }
 

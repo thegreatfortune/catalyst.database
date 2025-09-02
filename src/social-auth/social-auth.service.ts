@@ -1,11 +1,9 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common'
+import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
 import { ClientSession, Model, Types } from 'mongoose'
 import { SocialAuth } from '../schemas/social-auth.schema'
-import { SocialProvider } from '../schemas/user.schema'
-import { CreateSocialAuthDto } from './dto/create-social-auth.dto'
-import { UpdateSocialAuthDto } from './dto/update-social-auth.dto'
-import { GetSocialAuthDto } from './dto/get-social-auth.dto'
+import { CreateSocialAuthDto, UpdateSocialAuthDto, GetSocialAuthDto, RemoveSocialAuthDto } from './dto/social-auth.dto'
+
 
 @Injectable()
 export class SocialAuthService {
@@ -14,6 +12,17 @@ export class SocialAuthService {
     constructor(
         @InjectModel(SocialAuth.name) private socialAuthModel: Model<SocialAuth>
     ) { }
+
+    async createSocialAuth(csaDto: CreateSocialAuthDto, session?: ClientSession): Promise<SocialAuth> {
+        try {
+            const createdSocialAuth = new this.socialAuthModel(csaDto)
+            await createdSocialAuth.save({ session })
+            return createdSocialAuth.toJSON()
+        } catch (error) {
+            this.logger.error(`Failed to create social auth for user ${csaDto.userId} and provider ${csaDto.provider}`, error)
+            throw error
+        }
+    }
 
     async getSocialAuth(gsaDto: GetSocialAuthDto, session?: ClientSession): Promise<SocialAuth> {
         const { userId, provider } = gsaDto
@@ -36,34 +45,51 @@ export class SocialAuthService {
         }
     }
 
-    async createSocialAuth(csaDto: CreateSocialAuthDto, session?: ClientSession): Promise<SocialAuth> {
-        try {
-            const createdSocialAuth = new this.socialAuthModel(csaDto)
-            await createdSocialAuth.save({ session })
-            return createdSocialAuth.toJSON()
-        } catch (error) {
-            this.logger.error(`Failed to create social auth for user ${csaDto.userId} and provider ${csaDto.provider}`, error)
-            throw error
-        }
-    }
-
     async updateSocialAuth(usaDto: UpdateSocialAuthDto, session?: ClientSession): Promise<SocialAuth> {
         try {
-            const { userId, provider, ...updateData } = usaDto
+            const { userId, provider, details } = usaDto
+
+            // 如果没有要更新的字段，抛出错误
+            if (Object.keys(details).length !== 4) {
+                throw new BadRequestException('Update fields must be accessToken, refreshToken, tokenExpiry, scope')
+            }
+
             const updatedSocialAuth = await this.socialAuthModel.findOneAndUpdate(
                 {
                     userId,
                     provider
                 },
-                { ...updateData },
+                { $set: details },
                 { new: true, session }
             ).exec()
+
             if (!updatedSocialAuth) {
                 throw new NotFoundException(`No social auth found for user ${userId} and provider ${provider}`)
             }
+
             return updatedSocialAuth.toJSON()
         } catch (error) {
             this.logger.error(`Failed to update social auth for user ${usaDto.userId} and provider ${usaDto.provider}`, error)
+            throw error
+        }
+    }
+
+    async removeSocialAuth(rsaDto: RemoveSocialAuthDto, session?: ClientSession): Promise<void> {
+        try {
+            const { userId, provider } = rsaDto
+            const removedSocialAuth = await this.socialAuthModel.findOneAndDelete(
+                {
+                    userId,
+                    provider
+                },
+                { session }
+            ).exec()
+            if (!removedSocialAuth) {
+                // 如果没有找到，说明社交账号已经解绑，继续流程
+                this.logger.warn(`No social auth found for user ${userId} and provider ${provider}`)
+            }
+        } catch (error) {
+            this.logger.error(`Failed to remove social auth for user ${rsaDto.userId} and provider ${rsaDto.provider}`, error)
             throw error
         }
     }
