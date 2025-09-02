@@ -21,10 +21,6 @@ export class FindRefreshTokenDto {
     @IsString()
     token: string
 
-    // @IsOptional()
-    // @IsString()
-    // userId: string
-
     @IsEnum(DeviceType)
     @IsNotEmpty()
     deviceType: DeviceType

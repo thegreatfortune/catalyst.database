@@ -2,7 +2,7 @@ import { Body, Controller, Get, Param, Patch, Query } from '@nestjs/common'
 import { BadRequestException, NotFoundException, InternalServerErrorException } from '@nestjs/common'
 import { GetSocialAuthDto, UpdateSocialAuthDto } from './dto/social-auth.dto'
 import { SocialAuthService } from './social-auth.service'
-import { SocialAuth } from '../schemas/social-auth.schema'
+import { XAuth } from '../schemas/social-auth.schema'
 
 
 @Controller('user/social-auth')
@@ -14,7 +14,7 @@ export class SocialAuthController {
     @Get()
     async getSocialAuth(
         @Query() gsaDto: GetSocialAuthDto,
-    ): Promise<SocialAuth> {
+    ): Promise<XAuth> {
         const { userId, provider } = gsaDto
         try {
             return await this.socialAuthService.getSocialAuth(gsaDto)
@@ -32,7 +32,7 @@ export class SocialAuthController {
     }
 
     @Patch()
-    async updateSocialAuth(@Body() usaDto: UpdateSocialAuthDto): Promise<SocialAuth> {
+    async updateSocialAuth(@Body() usaDto: UpdateSocialAuthDto): Promise<XAuth> {
         try {
             return this.socialAuthService.updateSocialAuth(usaDto)
         } catch (error) {

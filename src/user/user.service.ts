@@ -53,7 +53,7 @@ export class UserService {
    * @param createUserDto 
    * @returns 
    */
-  async create(createUserDto: CreateUserDto): Promise<User> {
+  async create(createUserDto: CreateUserDto): Promise<UserInfo> {
     try {
       const preferences: Preferences = {
         ui: {
@@ -79,7 +79,9 @@ export class UserService {
       }
 
       const createdUser = new this.userModel(user)
-      return await createdUser.save()
+      await createdUser.save()
+
+      return createdUser.toJSON()
     } catch (error) {
       this.logger.error('创建用户失败', error)
       throw error
@@ -182,7 +184,7 @@ export class UserService {
     }
   }
 
-  async findUsersByChainType(chainType: string): Promise<User[]> {
+  async findUsersByChainType(chainType: string): Promise<UserInfo[]> {
     try {
       return this.userModel.find({ chainType }).exec()
     } catch (error) {
@@ -319,7 +321,7 @@ export class UserService {
     }
   }
 
-  async update(id: string, updateUserDto: UpdateUserDto): Promise<User> {
+  async update(id: string, updateUserDto: UpdateUserDto): Promise<UserInfo> {
     try {
       // 如果更新包含匿名身份数据
       if (updateUserDto.anonymousIdentities && updateUserDto.anonymousIdentities.length > 0) {

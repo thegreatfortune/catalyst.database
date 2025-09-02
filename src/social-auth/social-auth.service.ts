@@ -1,7 +1,7 @@
 import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
 import { ClientSession, Model, Types } from 'mongoose'
-import { SocialAuth } from '../schemas/social-auth.schema'
+import { SocialAuth, XAuth } from '../schemas/social-auth.schema'
 import { CreateSocialAuthDto, UpdateSocialAuthDto, GetSocialAuthDto, RemoveSocialAuthDto } from './dto/social-auth.dto'
 
 
@@ -13,18 +13,18 @@ export class SocialAuthService {
         @InjectModel(SocialAuth.name) private socialAuthModel: Model<SocialAuth>
     ) { }
 
-    async createSocialAuth(csaDto: CreateSocialAuthDto, session?: ClientSession): Promise<SocialAuth> {
+    async createSocialAuth(csaDto: CreateSocialAuthDto, session?: ClientSession): Promise<XAuth> {
         try {
             const createdSocialAuth = new this.socialAuthModel(csaDto)
             await createdSocialAuth.save({ session })
-            return createdSocialAuth.toJSON()
+            return createdSocialAuth.toJSON().details
         } catch (error) {
             this.logger.error(`Failed to create social auth for user ${csaDto.userId} and provider ${csaDto.provider}`, error)
             throw error
         }
     }
 
-    async getSocialAuth(gsaDto: GetSocialAuthDto, session?: ClientSession): Promise<SocialAuth> {
+    async getSocialAuth(gsaDto: GetSocialAuthDto, session?: ClientSession): Promise<XAuth> {
         const { userId, provider } = gsaDto
         try {
             const socialAuth = await this.socialAuthModel.findOne(
@@ -38,14 +38,14 @@ export class SocialAuthService {
             if (!socialAuth) {
                 throw new NotFoundException(`No social auth found for user ${userId} and provider ${provider}`)
             }
-            return socialAuth.toJSON()
+            return socialAuth.toJSON().details
         } catch (error) {
             this.logger.error(`Failed to get social auth for user ${userId} and provider ${provider}`, error)
             throw error
         }
     }
 
-    async updateSocialAuth(usaDto: UpdateSocialAuthDto, session?: ClientSession): Promise<SocialAuth> {
+    async updateSocialAuth(usaDto: UpdateSocialAuthDto, session?: ClientSession): Promise<XAuth> {
         try {
             const { userId, provider, details } = usaDto
 
@@ -67,7 +67,7 @@ export class SocialAuthService {
                 throw new NotFoundException(`No social auth found for user ${userId} and provider ${provider}`)
             }
 
-            return updatedSocialAuth.toJSON()
+            return updatedSocialAuth.toJSON().details
         } catch (error) {
             this.logger.error(`Failed to update social auth for user ${usaDto.userId} and provider ${usaDto.provider}`, error)
             throw error

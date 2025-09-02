@@ -1,11 +1,10 @@
 // src/schemas/user.schema.ts
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose'
 import { Type } from 'class-transformer'
-import { IsBoolean, IsDate, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, ValidateNested } from 'class-validator'
-import { Document } from 'mongoose'
+import mongoose, { Document } from 'mongoose'
 
 
-export type UserDocument = User & Document
+export type UserDocument = mongoose.HydratedDocument<User>
 
 export enum DeviceType {
   Desktop = 'desktop',
@@ -378,7 +377,26 @@ export class Preferences {
   contentPreferences?: ContentPreferences
 }
 
-@Schema({ timestamps: true })
+@Schema({
+  timestamps: true,
+  toJSON: {
+    transform: (_: UserDocument, ret: any) => {
+
+      ret.id = ret._id?.toString() || ''
+      delete ret._id
+      delete ret.__v
+      ret.lastSignedAt = ret.lastSignedAt.toISOString()
+      ret.createdAt = ret.createdAt.toISOString()
+      ret.updatedAt = ret.updatedAt.toISOString()
+
+      if (ret.userId) {
+        ret.userId = ret.userId.toString()
+      }
+
+      return ret
+    },
+  },
+})
 export class User {
   @Prop({ required: true })
   walletAddress: string
@@ -421,68 +439,6 @@ export class User {
 
   @Prop()
   anonymousIdentities?: Array<AnonymousIdentity>
-
-  // @Prop({
-  //   type: [
-  //     {
-  //       type: Object,
-  //       // 确保每个平台只能绑定一个账号
-  //       validate: {
-  //         validator: function (socialAccounts: SocialAccount[]) {
-  //           const providers = socialAccounts.map((account) => account.provider)
-  //           return providers.length === new Set(providers).size
-  //         },
-  //         message: '每个社交媒体平台只能绑定一个账号',
-  //       },
-  //     },
-  //   ],
-  //   description: '用户社交媒体账号信息',
-  // })
-  // socialAccounts?: SocialAccount[]
-
-  // @Prop({
-  //   type: [
-  //     {
-  //       type: Object,
-  //       // 确保每个平台只能绑定一个账号
-  //       validate: {
-  //         validator: function (
-  //           socialAccountTokenStates: SocialAccountTokenState[],
-  //         ) {
-  //           const providers = socialAccountTokenStates.map(
-  //             (account) => account.provider,
-  //           )
-  //           return providers.length === new Set(providers).size
-  //         },
-  //         message: '每个社交媒体平台只能有1个 socialAccountTokenState',
-  //       },
-  //     },
-  //   ],
-  //   description: '用户统计信息',
-  // })
-  // socialAccountTokenStates?: SocialAccountTokenState[]
-
-  // @Prop({
-  //   type: [
-  //     {
-  //       type: Object,
-  //       // 确保每个平台只能有1个 miningState
-  //       validate: {
-  //         validator: function (
-  //           socialAccountMiningStates: SocialAccountMiningState[],
-  //         ) {
-  //           const providers = socialAccountMiningStates.map(
-  //             (account) => account.provider,
-  //           )
-  //           return providers.length === new Set(providers).size
-  //         },
-  //         message: '每个社交媒体平台只能有1个 socialAccountMiningState',
-  //       },
-  //     },
-  //   ],
-  //   description: '用户社交媒体平台的挖矿状态',
-  // })
-  // socialAccountMiningStates?: SocialAccountMiningState[]
 }
 
 export const UserSchema = SchemaFactory.createForClass(User)
@@ -491,9 +447,5 @@ export const UserSchema = SchemaFactory.createForClass(User)
 UserSchema.index({ walletAddress: 1, chainId: 1 }, { unique: true })
 UserSchema.index({ isActive: 1 })
 UserSchema.index({ createdAt: -1 })
-UserSchema.index({ 'stats.followers': -1 })
-UserSchema.index({
-  'socialAccounts.platform': 1,
-  'socialAccounts.accountId': 1,
-})
+UserSchema.index({ 'refreshTokens.token': 1, 'refreshTokens.deviceType': 1 }, { unique: true })
 UserSchema.index({ 'walletInfo.ens': 1 })

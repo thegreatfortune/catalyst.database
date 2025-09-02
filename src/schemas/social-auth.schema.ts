@@ -77,7 +77,6 @@ export class XAuth {
     discriminatorKey: 'provider'
 })
 export class SocialAuth {
-
     @Prop({
         required: true,
         type: mongoose.Schema.Types.ObjectId,

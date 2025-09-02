@@ -183,8 +183,8 @@ export class XUser implements Pick<XUserType,
             ret.id = ret._id?.toString() || ''
             delete ret._id
             delete ret.__v
-            ret.createdAt = ret.createdAt?.toISOString()
-            ret.updatedAt = ret.updatedAt?.toISOString()
+            ret.createdAt = ret.createdAt.toISOString()
+            ret.updatedAt = ret.updatedAt.toISOString()
 
             if (ret.userId) {
                 ret.userId = ret.userId.toString()

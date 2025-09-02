@@ -24,16 +24,11 @@ export class CreateSocialAuthDto {
     details: CreateXAuthDetailsDto
 }
 
-
-
 export class GetSocialAuthDto extends GetSocialDto {
-
 }
 
 export class UpdateSocialAuthDto extends CreateSocialAuthDto {
-
 }
 
 export class RemoveSocialAuthDto extends GetSocialDto {
-
 }

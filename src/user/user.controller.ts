@@ -19,6 +19,7 @@ import { RefreshTokenService } from './refresh-token.service'
 import { CreateRefreshTokenDto, FindRefreshTokenDto, RemoveRefreshTokenDto } from './dto/refresh-token.dto'
 import { RandomUserDto } from './dto/random-user.dto'
 import { FindByWalletAddressDto } from './dto/find-by-walletaddress.dto'
+import { UserInfo } from './dto/reponse.dto'
 
 @Controller('user')
 export class UserController {
@@ -28,7 +29,7 @@ export class UserController {
   ) { }
 
   @Post()
-  async create(@Body() createUserDto: CreateUserDto) {
+  async create(@Body() createUserDto: CreateUserDto): Promise<UserInfo> {
     try {
       const user = await this.userService.create(createUserDto)
       return user
@@ -91,7 +92,7 @@ export class UserController {
   }
 
   @Get()
-  async findByWalletAddress(@Query() fbwaDto: FindByWalletAddressDto) {
+  async findByWalletAddress(@Query() fbwaDto: FindByWalletAddressDto): Promise<UserInfo> {
     const { walletAddress, chainId } = fbwaDto
     try {
       return this.userService.findByWalletAddress(walletAddress, Number(chainId))
@@ -107,7 +108,7 @@ export class UserController {
   }
 
   @Get('random')
-  async getRandomUserWithToken(@Query() ruDto: RandomUserDto) {
+  async getRandomUserWithToken(@Query() ruDto: RandomUserDto): Promise<string> {
     try {
       const userId = await this.userService.findRandomUserId(ruDto.excludedUserId, ruDto.provider)
       if (!userId) {
@@ -122,7 +123,7 @@ export class UserController {
   }
 
   @Get(':id')
-  async findOne(@Param('id') id: string) {
+  async findOne(@Param('id') id: string): Promise<UserInfo> {
     try {
       return this.userService.findById(id)
     } catch (error) {
@@ -137,7 +138,7 @@ export class UserController {
   }
 
   @Patch(':id')
-  async update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
+  async update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto): Promise<UserInfo> {
     try {
       console.log('database update updateUserDto:', updateUserDto)
       return this.userService.update(id, updateUserDto)

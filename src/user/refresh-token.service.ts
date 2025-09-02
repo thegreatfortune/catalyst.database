@@ -2,6 +2,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
 import { Model } from 'mongoose'
 import { DeviceType, RefreshTokenInfo, User } from '../schemas/user.schema'
+import { UserInfo } from './dto/reponse.dto'
 
 const maxAgeMs = 30 * 24 * 60 * 60 * 1000 // 30天
 
@@ -22,7 +23,7 @@ export class RefreshTokenService {
         userId: string,
         token: string,
         deviceType: DeviceType = DeviceType.Mobile,
-    ): Promise<User> {
+    ): Promise<UserInfo> {
         try {
             this.logger.log(`为用户 ${userId} 创建或更新刷新令牌`)
 
@@ -57,8 +58,8 @@ export class RefreshTokenService {
                     issuedAt: new Date(),
                 })
             }
-
-            return user.save()
+            await user.save()
+            return user.toJSON()
         } catch (error) {
             this.logger.error(`创建刷新令牌失败: ${error.message}`, error.stack)
             throw error
@@ -89,19 +90,7 @@ export class RefreshTokenService {
             if (!user) {
                 throw new NotFoundException(`用户 ${user} 的未找到`)
             }
-
-            // const refreshToken = user.refreshTokens?.find(
-            //     rt => rt.deviceType === deviceType
-            // )
-            // if (!refreshToken) {
-            //     throw new NotFoundException(`用户 ${userId} 平台 ${deviceType} 的刷新令牌不存在`)
-            // }
-
-            // if (refreshToken.token !== token) {
-            //     return false
-            // }
-            return user
-
+            return user.toJSON()
         } catch (error) {
             this.logger.error(`查找刷新令牌失败: ${error.message}`, error.stack)
             throw error
@@ -114,7 +103,7 @@ export class RefreshTokenService {
      * @param token 要删除的令牌
      * @returns 更新后的用户对象
      */
-    async remove(userId: string, token: string): Promise<User> {
+    async remove(userId: string, token: string): Promise<UserInfo> {
         try {
             this.logger.log(`删除用户 ${userId} 的刷新令牌`)
 
@@ -128,7 +117,7 @@ export class RefreshTokenService {
                 throw new NotFoundException(`用户 ${userId} 不存在`)
             }
 
-            return result
+            return result.toJSON()
         } catch (error) {
             this.logger.error(`删除刷新令牌失败: ${error.message}`, error.stack)
             throw error
@@ -140,7 +129,7 @@ export class RefreshTokenService {
      * @param userId 用户ID
      * @returns 更新后的用户对象
      */
-    async removeAll(userId: string): Promise<User> {
+    async removeAll(userId: string): Promise<UserInfo> {
         try {
             this.logger.log(`删除用户 ${userId} 的所有刷新令牌`)
 
@@ -154,7 +143,7 @@ export class RefreshTokenService {
                 throw new NotFoundException(`用户 ${userId} 不存在`)
             }
 
-            return result
+            return result.toJSON()
         } catch (error) {
             this.logger.error(`删除所有刷新令牌失败: ${error.message}`, error.stack)
             throw error
@@ -167,7 +156,7 @@ export class RefreshTokenService {
      * @param deviceType 设备类型
      * @returns 更新后的用户对象
      */
-    async removeByDeviceType(userId: string, deviceType: DeviceType): Promise<User> {
+    async removeByDeviceType(userId: string, deviceType: DeviceType): Promise<UserInfo> {
         try {
             this.logger.log(`删除用户 ${userId} 设备 ${deviceType} 的所有刷新令牌`)
 
@@ -180,7 +169,7 @@ export class RefreshTokenService {
             if (!result) {
                 throw new NotFoundException(`用户 ${userId} 不存在`)
             }
-            return result
+            return result.toJSON()
         } catch (error) {
             this.logger.error(`删除平台刷新令牌失败: ${error.message}`, error.stack)
             throw error
