@@ -1,5 +1,5 @@
 import { Type } from "class-transformer"
-import { IsBoolean, IsEnum, IsMongoId, IsNotEmpty, IsNumber, IsString, ValidateNested } from "class-validator"
+import { IsBoolean, IsEnum, IsMongoId, IsNotEmpty, IsNumber, IsOptional, IsString, ValidateNested } from "class-validator"
 import { SocialProvider } from "../../schemas/user.schema"
 import { XPublicMetrics, XUser, XVerifiedType } from "src/schemas/social.schema"
 
@@ -48,6 +48,10 @@ export class XUserDto implements XUser {
     description: string
 
     @IsString()
+    confirmed_email: string
+
+    @IsOptional()
+    @IsString()
     location: string
 
     @IsNotEmpty()
@@ -55,6 +59,7 @@ export class XUserDto implements XUser {
     @Type(() => XPublicMetricsDto)
     public_metrics: XPublicMetricsDto
 
+    @IsOptional()
     @IsString()
     url: string
 
@@ -64,11 +69,14 @@ export class XUserDto implements XUser {
     @IsEnum(XVerifiedType)
     verified_type: XVerifiedType
 
+    @IsOptional()
     entities: any
 
+    @IsOptional()
     @IsString()
     profile_image_url: string
 
+    @IsOptional()
     @IsString()
     profile_banner_url: string
 
@@ -79,9 +87,11 @@ export class XUserDto implements XUser {
     @IsString()
     most_recent_tweet_id: string
 
+    @IsOptional()
     @IsBoolean()
     protected: boolean
 
+    @IsOptional()
     @IsString()
     pinned_tweet_id: string
 }

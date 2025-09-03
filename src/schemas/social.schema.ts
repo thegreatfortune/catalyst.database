@@ -62,7 +62,7 @@ export class XPublicMetrics {
 
 @Schema({ _id: false })
 export class XUser implements Pick<XUserType,
-    'id' | 'username' | 'name' | 'description' | 'location' | 'public_metrics' | 'url' |
+    'id' | 'username' | 'name' | 'description' | 'location' | 'public_metrics' | 'url' | 'confirmed_email' |
     'verified' | 'verified_type' | 'entities' | 'profile_image_url' | 'profile_banner_url' |
     'created_at' | 'most_recent_tweet_id' | 'protected' | 'pinned_tweet_id'
 > {
@@ -83,6 +83,11 @@ export class XUser implements Pick<XUserType,
         required: true,
     })
     name: string
+
+    @Prop({
+        type: String,
+    })
+    confirmed_email: string
 
     @Prop({
         type: String,
