@@ -20,8 +20,6 @@ export class XPublicMetrics {
         required: true,
         min: 0,
     })
-    @IsNumber()
-    @IsNotEmpty()
     followers_count: number
 
     @Prop({
@@ -29,8 +27,6 @@ export class XPublicMetrics {
         required: true,
         min: 0,
     })
-    @IsNumber()
-    @IsNotEmpty()
     following_count: number
 
     @Prop({
@@ -38,8 +34,6 @@ export class XPublicMetrics {
         required: true,
         min: 0,
     })
-    @IsNumber()
-    @IsNotEmpty()
     tweet_count: number
 
     @Prop({
@@ -56,8 +50,6 @@ export class XPublicMetrics {
         required: true,
         min: 0,
     })
-    @IsNumber()
-    @IsNotEmpty()
     like_count: number
 
     @Prop({
@@ -78,24 +70,18 @@ export class XUser implements Pick<XUserType,
         type: String,
         required: true,
     })
-    @IsString()
-    @IsNotEmpty()
     id: string
 
     @Prop({
         type: String,
         required: true,
     })
-    @IsString()
-    @IsNotEmpty()
     username: string
 
     @Prop({
         type: String,
         required: true,
     })
-    @IsString()
-    @IsNotEmpty()
     name: string
 
     @Prop({
@@ -113,9 +99,6 @@ export class XUser implements Pick<XUserType,
         type: XPublicMetrics,
         required: true,
     })
-    @IsNotEmpty()
-    @ValidateNested()
-    @Type(() => XPublicMetrics)
     public_metrics: XPublicMetrics
 
     @Prop({
@@ -131,7 +114,6 @@ export class XUser implements Pick<XUserType,
     @Prop({
         type: String
     })
-    @IsEnum(XVerifiedType)
     verified_type: XVerifiedType
 
     @Prop({
@@ -153,8 +135,6 @@ export class XUser implements Pick<XUserType,
         type: String,
         required: true,
     })
-    @IsString()
-    @IsNotEmpty()
     created_at: string
 
     @Prop({

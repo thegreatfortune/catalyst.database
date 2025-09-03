@@ -1,11 +1,27 @@
 import { Type } from "class-transformer"
 import { SocialProvider } from "../../schemas/user.schema"
-import { IsEnum, IsMongoId, IsNotEmpty, IsString, ValidateNested } from "class-validator"
+import { IsDate, IsEnum, IsMongoId, IsNotEmpty, IsString, ValidateNested } from "class-validator"
 import { XAuth } from "../../schemas/social-auth.schema"
 import { GetSocialDto } from "../../social/dto/get-social.dto"
 
 
-export class CreateXAuthDetailsDto extends XAuth {
+export class XAuthDto implements XAuth {
+    @IsString()
+    @IsNotEmpty()
+    accessToken: string
+
+    @IsString()
+    @IsNotEmpty()
+    refreshToken: string
+
+    @IsDate()
+    @IsNotEmpty()
+    @Type(() => Date)
+    tokenExpiry: Date
+
+    @IsString()
+    @IsNotEmpty()
+    scope: string
 }
 
 export class CreateSocialAuthDto {
@@ -24,11 +40,11 @@ export class CreateSocialAuthDto {
         discriminator: {
             property: 'provider',
             subTypes: [
-                { value: CreateXAuthDetailsDto, name: SocialProvider.X },
+                { value: XAuthDto, name: SocialProvider.X },
             ]
         }
     })
-    details: CreateXAuthDetailsDto
+    details: XAuthDto
 }
 
 export class GetSocialAuthDto extends GetSocialDto {

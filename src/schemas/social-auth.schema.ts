@@ -22,33 +22,24 @@ export class XAuth {
         type: String,
         required: true,
     })
-    @IsString()
-    @IsNotEmpty()
     accessToken: string
 
     @Prop({
         type: String,
         required: true,
     })
-    @IsString()
-    @IsNotEmpty()
     refreshToken: string
 
     @Prop({
         type: Date,
         required: true,
     })
-    @IsDate()
-    @IsNotEmpty()
-    @Type(() => Date)
     tokenExpiry: Date
 
     @Prop({
         type: String,
         required: true,
     })
-    @IsString()
-    @IsNotEmpty()
     scope: string
 }
 
