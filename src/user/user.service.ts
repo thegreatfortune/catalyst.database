@@ -1,10 +1,7 @@
 import {
   Injectable,
-  HttpException,
-  HttpStatus,
   NotFoundException,
-  BadRequestException,
-  InternalServerErrorException,
+  BadRequestException
 } from '@nestjs/common'
 import { InjectConnection, InjectModel } from '@nestjs/mongoose'
 import { Connection, Model } from 'mongoose'

@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
 import { ClientSession, Model } from 'mongoose'
-import { Point, PointDocument, PointTransaction, TransactionType, TransactionTypePoint } from '../schemas/point.schema'
+import { Point, PointTransaction, TransactionTypePoint } from '../schemas/point.schema'
 import { UpdatePointDto } from './dto/create-point-transaction.dto'
 import { Logger } from '@nestjs/common'
 import { GetPointTransactionsDto, SortOrder } from './dto/get-point-transactions.dto'

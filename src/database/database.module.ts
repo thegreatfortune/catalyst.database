@@ -1,11 +1,10 @@
 import { Global, Module } from '@nestjs/common'
 import { MongooseModule } from '@nestjs/mongoose'
-import { SocialAuth, SocialAuthSchema, XAuthSchema } from '../schemas/social-auth.schema'
-import { Social, SocialSchema, XUserSchema } from '../schemas/social.schema'
-import { User, UserSchema, SocialProvider } from '../schemas/user.schema'
+import { SocialAuth, SocialAuthSchema } from '../schemas/social-auth.schema'
+import { Social, SocialSchema } from '../schemas/social.schema'
+import { User, UserSchema } from '../schemas/user.schema'
 import { Point, PointSchema, PointTransaction, PointTransactionSchema } from '../schemas/point.schema'
 import { Content, ContentSchema } from '../schemas/content.schema'
-import mongoose from 'mongoose'
 
 
 @Global()

@@ -1,7 +1,7 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
 import { Model } from 'mongoose'
-import { DeviceType, RefreshTokenInfo, User } from '../schemas/user.schema'
+import { DeviceType, User } from '../schemas/user.schema'
 import { UserInfo } from './dto/reponse.dto'
 
 const maxAgeMs = 30 * 24 * 60 * 60 * 1000 // 30天

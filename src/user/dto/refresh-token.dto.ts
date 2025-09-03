@@ -1,4 +1,4 @@
-import { IsEnum, IsNotEmpty, IsOptional, IsString } from "class-validator"
+import { IsEnum, IsNotEmpty, IsString } from "class-validator"
 import { DeviceType } from "../../schemas/user.schema"
 
 

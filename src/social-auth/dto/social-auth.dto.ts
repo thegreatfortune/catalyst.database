@@ -1,6 +1,6 @@
 import { Type } from "class-transformer"
 import { SocialProvider } from "../../schemas/user.schema"
-import { IsEnum, IsMongoId, IsNotEmpty, IsString, ValidateNested } from "class-validator"
+import { IsEnum, IsMongoId, IsNotEmpty, IsString } from "class-validator"
 import { XAuth } from "../../schemas/social-auth.schema"
 import { GetSocialDto } from "../../social/dto/get-social.dto"
 

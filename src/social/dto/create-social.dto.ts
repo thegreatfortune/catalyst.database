@@ -1,8 +1,7 @@
 import { Type } from "class-transformer"
-import { IsBoolean, IsDate, IsEnum, IsMongoId, IsNotEmpty, IsNumber, IsOptional, IsString, ValidateNested } from "class-validator"
+import { IsEnum, IsMongoId, IsNotEmpty, IsString } from "class-validator"
 import { SocialProvider } from "../../schemas/user.schema"
 import { XUser } from "src/schemas/social.schema"
-import { OmitType, PartialType } from "@nestjs/swagger"
 
 
 export class CreateSocialDto {

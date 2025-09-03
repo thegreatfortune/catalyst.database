@@ -1,7 +1,6 @@
 // src/schemas/user.schema.ts
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose'
-import { Type } from 'class-transformer'
-import mongoose, { Document } from 'mongoose'
+import mongoose from 'mongoose'
 
 
 export type UserDocument = mongoose.HydratedDocument<User>

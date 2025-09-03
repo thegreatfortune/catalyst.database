@@ -1,6 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose'
-import { IsEnum, IsNotEmpty } from 'class-validator'
-import mongoose, { Document } from 'mongoose'
+import mongoose from 'mongoose'
 
 export type PointDocument = mongoose.HydratedDocument<Point>
 export type PointTransactionDocument = mongoose.HydratedDocument<PointTransaction>

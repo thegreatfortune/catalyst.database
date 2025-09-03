@@ -1,9 +1,8 @@
 import { BadRequestException, Body, Controller, Delete, Get, InternalServerErrorException, NotFoundException, Patch, Post, Query } from '@nestjs/common'
 import { SocialService } from './social.service'
-import { CreateSocialDto } from './dto/create-social.dto'
 import { BindSocialAccountDto } from './dto/bind-social-account.dto'
 import { GetSocialDto } from './dto/get-social.dto'
-import { Social, XUser } from '../schemas/social.schema'
+import { XUser } from '../schemas/social.schema'
 import { RemoveSocialDto } from './dto/remove-social.dto'
 import { UpdateSocialDto } from './dto/update-social.dto'
 

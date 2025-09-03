@@ -1,9 +1,7 @@
 // src/database/dto/create-user.dto.ts
 import { Type } from 'class-transformer'
 import {
-  IsBoolean,
   IsDate,
-  IsEnum,
   IsNotEmpty,
   IsNumber,
   IsOptional,

@@ -1,6 +1,6 @@
 import { Type } from "class-transformer"
-import { IsBoolean, IsDate, IsEnum, IsNotEmpty, IsOptional, IsString, IsUUID, ValidateNested } from "class-validator"
-import { DefaultCurrency, Language, Preferences, Theme, Timezone } from "../../schemas/user.schema"
+import { IsBoolean, IsEnum, IsOptional, IsString, IsUUID, ValidateNested } from "class-validator"
+import { DefaultCurrency, Language, Theme, Timezone } from "../../schemas/user.schema"
 
 
 

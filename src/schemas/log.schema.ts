@@ -1,7 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose'
 import { Document, Schema as MongooseSchema } from 'mongoose'
 import { SocialProvider } from './user.schema'
-import { IsMongoId } from 'class-validator'
 
 
 export type SocialOperationLogDocument = SocialOperationLog & Document
