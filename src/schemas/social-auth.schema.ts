@@ -104,3 +104,7 @@ export const SocialAuthSchema = SchemaFactory.createForClass(SocialAuth)
 export const XAuthSchema = SchemaFactory.createForClass(XAuth)
 // 添加复合索引以优化查询
 SocialAuthSchema.index({ userId: 1, provider: 1 })
+
+SocialAuthSchema.discriminator(`social_auth_${SocialProvider.X}`, new mongoose.Schema({
+    details: { type: XAuthSchema, required: true }
+}))

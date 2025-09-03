@@ -14,7 +14,6 @@ export enum XVerifiedType {
     GOVERNMENT = 'government',
 }
 
-
 export class XPublicMetrics {
     @Prop({
         type: Number,
@@ -130,7 +129,7 @@ export class XUser implements Pick<XUserType,
     verified: boolean
 
     @Prop({
-        type: XVerifiedType
+        type: String
     })
     @IsEnum(XVerifiedType)
     verified_type: XVerifiedType
@@ -224,8 +223,8 @@ export const SocialSchema = SchemaFactory.createForClass(Social)
 
 export const XUserSchema = SchemaFactory.createForClass(XUser)
 
-// 添加复合索引以优化查询
-SocialSchema.index({ userId: 1, provider: 1 })
+// // 添加复合索引以优化查询
+// SocialSchema.index({ userId: 1, provider: 1 })
 
 // 添加社交媒体ID唯一索引
 SocialSchema.index({ 'details.id': 1, provider: 1 }, { unique: true })
@@ -234,3 +233,7 @@ SocialSchema.index({ 'details.id': 1, provider: 1 }, { unique: true })
 SocialSchema.index({ userId: 1, provider: 1 }, {
     partialFilterExpression: { userId: { $ne: null } }
 })
+
+SocialSchema.discriminator(`social_${SocialProvider.X}`, new mongoose.Schema({
+    details: { type: XUserSchema, required: true }
+}))

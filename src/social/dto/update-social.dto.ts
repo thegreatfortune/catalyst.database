@@ -1,8 +1,7 @@
 import { Type } from "class-transformer"
-import { IsBoolean, IsDate, IsEnum, IsMongoId, IsNotEmpty, IsNumber, IsObject, IsOptional, IsString, ValidateNested } from "class-validator"
+import { IsEnum, IsNotEmpty } from "class-validator"
 import { SocialProvider } from "../../schemas/user.schema"
-import { XPublicMetrics, XUser, XVerifiedType } from "src/schemas/social.schema"
-import { OmitType, PartialType } from "@nestjs/swagger"
+import { XUser } from "src/schemas/social.schema"
 
 export class UpdateXUserDetailsDto extends XUser {
 

@@ -19,8 +19,15 @@ export class CreateSocialAuthDto {
     provider: SocialProvider
 
 
-    @ValidateNested()
-    @Type(() => CreateXAuthDetailsDto)
+    @Type(() => Object, {
+        // 根据provider字段动态确定details的类型
+        discriminator: {
+            property: 'provider',
+            subTypes: [
+                { value: CreateXAuthDetailsDto, name: SocialProvider.X },
+            ]
+        }
+    })
     details: CreateXAuthDetailsDto
 }
 
