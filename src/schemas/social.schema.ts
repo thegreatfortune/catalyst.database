@@ -163,8 +163,6 @@ export class XUser implements Pick<XUserType,
     timestamps: true,
     toJSON: {
         transform: (_: SocialDocument, ret: any) => {
-
-            ret.id = ret._id?.toString() || ''
             delete ret._id
             delete ret.__v
             ret.createdAt = ret.createdAt.toISOString()
@@ -173,6 +171,12 @@ export class XUser implements Pick<XUserType,
             if (ret.userId) {
                 ret.userId = ret.userId.toString()
             }
+
+            delete ret.details.id
+            delete ret.details.confirmed_email
+            delete ret.details.entities
+            delete ret.details.created_at
+            delete ret.details.protected
 
             return ret
         },

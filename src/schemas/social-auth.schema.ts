@@ -48,8 +48,6 @@ export class XAuth {
     collection: 'social_auths',
     toJSON: {
         transform: (_: SocialAuthDocument, ret: any) => {
-
-            ret.id = ret._id?.toString() || ''
             delete ret._id
             delete ret.__v
             ret.createdAt = ret.createdAt?.toISOString()
