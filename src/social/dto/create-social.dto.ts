@@ -1,5 +1,5 @@
 import { Type } from "class-transformer"
-import { IsEnum, IsMongoId, IsNotEmpty, IsString } from "class-validator"
+import { IsEnum, IsMongoId, IsNotEmpty, IsString, ValidateNested } from "class-validator"
 import { SocialProvider } from "../../schemas/user.schema"
 import { XUser } from "src/schemas/social.schema"
 
@@ -15,6 +15,7 @@ export class CreateSocialDto {
     @IsNotEmpty()
     provider: SocialProvider
 
+    @ValidateNested()
     @Type(() => Object, {
         // 根据provider字段动态确定details的类型
         discriminator: {
