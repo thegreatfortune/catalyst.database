@@ -98,14 +98,11 @@ export class CreateSocialDto {
 
     @IsNotEmpty()
     @ValidateNested()
-    @Type(() => Object, {
-        // 根据provider字段动态确定details的类型
-        discriminator: {
-            property: 'provider',
-            subTypes: [
-                { value: XUserDto, name: SocialProvider.X },
-            ]
-        }
+    @Type((options) => {
+        // 手动根据顶级 provider 选择类型
+        const provider = options?.object?.provider
+        if (provider === SocialProvider.X) return XUserDto
+        return Object
     })
     details: XUserDto
 }
