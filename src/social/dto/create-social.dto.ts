@@ -47,6 +47,7 @@ export class XUserDto implements XUser {
     @IsString()
     description: string
 
+    @IsOptional()
     @IsString()
     confirmed_email: string
 

@@ -3,11 +3,11 @@ import { InjectConnection, InjectModel } from '@nestjs/mongoose'
 import { ClientSession, Connection, Model, Types } from 'mongoose'
 import { Social, SocialDocument, XUser } from '../schemas/social.schema'
 import { Logger } from '@nestjs/common'
-import { CreateSocialDto } from './dto/create-social.dto'
+import { CreateSocialDto, XUserDto } from './dto/create-social.dto'
 import { GetSocialDto } from './dto/get-social.dto'
 import { UpdateSocialDto } from './dto/update-social.dto'
 import { CreateSocialAuthDto } from '../social-auth/dto/social-auth.dto'
-import { User, UserDocument } from '../schemas/user.schema'
+import { SocialProvider, User, UserDocument } from '../schemas/user.schema'
 import { SocialAuthService } from '../social-auth/social-auth.service'
 import { RemoveSocialDto } from './dto/remove-social.dto'
 
@@ -244,6 +244,42 @@ export class SocialService {
 
         } catch (error) {
             this.logger.error(`Failed to create social account: ${error.message}`, error.stack)
+            throw error
+        }
+    }
+
+    /**
+     * 批量更新社交账号信息
+     * @param xUsers X用户DTO数组
+     * @param session 事务会话
+     * @returns 更新操作结果
+     */
+    private async updateSocials(xUsers: XUserDto[], session?: ClientSession) {
+        if (!xUsers || xUsers.length === 0) {
+            return { modifiedCount: 0, acknowledged: true }
+        }
+
+        try {
+            // 准备批量更新操作
+            const bulkOps = xUsers.map(xUser => {
+                return {
+                    updateOne: {
+                        filter: { 'details.id': xUser.id, provider: SocialProvider.X },
+                        update: {
+                            $set: {
+                                details: xUser,
+                                updatedAt: new Date()
+                            }
+                        }
+                    }
+                }
+            })
+
+            const result = await this.socialModel.bulkWrite(bulkOps, { session })
+            this.logger.log(`批量更新了 ${result.modifiedCount} 个社交账号`)
+            return result
+        } catch (error) {
+            this.logger.error(`批量更新社交账号失败: ${error.message}`, error.stack)
             throw error
         }
     }
