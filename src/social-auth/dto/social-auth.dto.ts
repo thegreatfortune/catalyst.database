@@ -25,24 +25,21 @@ export class XAuthDto implements XAuth {
 }
 
 export class CreateSocialAuthDto {
-    @IsString()
-    @IsMongoId()
     @IsNotEmpty()
+    @IsMongoId()
     userId: string
 
-    @IsEnum(SocialProvider)
     @IsNotEmpty()
+    @IsEnum(SocialProvider)
     provider: SocialProvider
 
+    @IsNotEmpty()
     @ValidateNested()
-    @Type(() => Object, {
-        // 根据provider字段动态确定details的类型
-        discriminator: {
-            property: 'provider',
-            subTypes: [
-                { value: XAuthDto, name: SocialProvider.X },
-            ]
-        }
+    @Type((options) => {
+        // 手动根据顶级 provider 选择类型
+        const provider = options?.object?.provider
+        if (provider === SocialProvider.X) return XAuthDto
+        return Object
     })
     details: XAuthDto
 }

@@ -89,14 +89,14 @@ export class XUserDto implements XUser {
 export class CreateSocialDto {
 
     @IsNotEmpty()
-    @IsString()
     @IsMongoId()
     userId: string
 
-    @IsEnum(SocialProvider)
     @IsNotEmpty()
+    @IsEnum(SocialProvider)
     provider: SocialProvider
 
+    @IsNotEmpty()
     @ValidateNested()
     @Type(() => Object, {
         // 根据provider字段动态确定details的类型
