@@ -2,14 +2,16 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common'
 import { InjectConnection, InjectModel } from '@nestjs/mongoose'
 import mongoose, { ClientSession, Connection, Model } from 'mongoose'
-import { Content, ContentDocument, ContentStatus, Metrics, PublicMetrics } from '../schemas/content.schema'
+import { Content, ContentDocument, ContentStatus, ContentType, Metrics, PublicMetrics } from '../schemas/content.schema'
 import { CreateContentDto } from '../content/dto/create-content.dto'
-import { PublishContentDto, UpdateMetricsDto } from './dto/update-content.dto'
+import { PublishContentDto, UpdateRawDto } from './dto/update-content.dto'
 import { Logger } from '@nestjs/common'
 import { PointService } from '../point/point.service'
 import { TransactionType } from 'src/schemas/point.schema'
 import { GetContentsDto, SortType } from './dto/get-contents.dto'
 import { GetContentsResponseDto } from './dto/get-contents-response.dto'
+import { SocialService } from 'src/social/social.service'
+import { XUser } from 'src/schemas/social.schema'
 
 @Injectable()
 export class ContentService {
@@ -17,7 +19,8 @@ export class ContentService {
   constructor(
     @InjectConnection() private connection: Connection,
     @InjectModel(Content.name) private contentModel: Model<Content>,
-    private readonly pointService: PointService
+    private readonly socialService: SocialService,
+    private readonly pointService: PointService,
   ) { }
 
   async findAll(): Promise<Content[]> {
@@ -97,47 +100,24 @@ export class ContentService {
    * @returns 
    */
   async create(ccDto: CreateContentDto): Promise<Content> {
-    const { publicMetrics: nativePublicMetrics, providerContentId, ...rest } = ccDto
+    const { rawId, ...rest } = ccDto
     try {
 
       // 检查是否为原始社媒的内容，如果存在增不能重新保存
-      if (ccDto.isNative && providerContentId) {
-        const existContent = await this.contentModel.findOne({
-          providerContentId: providerContentId,
-          isNative: true
-        }).exec()
+      if (rawId) {
+        const existContent = await this.contentModel.findOne({ rawId }).exec()
         if (existContent) {
-          throw new BadRequestException('Content with providerContentId already exists')
+          throw new BadRequestException('Content with rawId already exists')
         }
       }
 
       const metrics = new Metrics()
       metrics.anonComments = 0
 
-      const publicMetrics = new PublicMetrics()
-      if (ccDto.isNative && nativePublicMetrics) {
-        publicMetrics.likes = nativePublicMetrics.likes
-        publicMetrics.shares = nativePublicMetrics.shares
-        publicMetrics.comments = nativePublicMetrics.comments
-        publicMetrics.views = nativePublicMetrics.views
-        publicMetrics.saves = nativePublicMetrics.saves
-        publicMetrics.lastUpdated = new Date()
-      } else {
-        publicMetrics.likes = 0
-        publicMetrics.shares = 0
-        publicMetrics.comments = 0
-        publicMetrics.views = 0
-        publicMetrics.saves = 0
-        publicMetrics.lastUpdated = new Date()
-      }
-
       const contentDoc = new this.contentModel({
         ...rest,
-        contentLevel: 0,
         metrics: metrics,
-        publicMetrics: publicMetrics,
-        status: ccDto.isNative ? ContentStatus.PUBLISHED : ContentStatus.DRAFT,
-        lastEditedTime: new Date()
+        status: rawId ? ContentStatus.RAW : ContentStatus.DRAFT,
       })
       await contentDoc.save()
       return contentDoc.toJSON()
@@ -148,21 +128,33 @@ export class ContentService {
   }
 
   /**
-   * 更新发布状态，及用户socialAccountMiningStates.points
+   * 更新发布状态，及用户 points，只针对通过平台匿名发布的content
    * @param pcDto 
    * @returns
    */
   async publish(pcDto: PublishContentDto): Promise<Content> {
+
+    const incrementValue = pcDto.contentType === ContentType.COMMENT ? 0 : 1
+
     const session = await this.connection.startSession()
     session.startTransaction()
 
     try {
       const updatedContent = await this.contentModel
-        .findByIdAndUpdate(pcDto.contentId,
+        .findByIdAndUpdate({
+          _id: pcDto.contentId,
+          userId: { $ne: null },
+          contributorId: { $ne: null },
+        },
           {
-            status: ContentStatus.PUBLISHED,
-            providerContentId: pcDto.providerContentId,
-            publishedTime: new Date()
+            $set: {
+              status: ContentStatus.PUBLISHED,
+              rawId: pcDto.rawId,
+              publishedTime: new Date()
+            },
+            $inc: {
+              'metrics.anonComments': incrementValue
+            },
           },
           { new: true, session })
         .exec()
@@ -172,8 +164,8 @@ export class ContentService {
 
       // 更新点数，记录点数变化日志
       await this.pointService.upsertPoint({
-        userId: updatedContent.miningUserId,
-        transactionType: TransactionType.POC,
+        userId: updatedContent.raw.userId,
+        transactionType: updatedContent.contentType === ContentType.COMMENT ? TransactionType.COMMENT : TransactionType.POST,
         reason: 'Publish content',
       }, session)
 
@@ -188,6 +180,57 @@ export class ContentService {
       session.endSession()
     }
   }
+
+
+  async updateRaw(urDto: UpdateRawDto): Promise<Content> {
+    const session = await this.connection.startSession()
+    session.startTransaction()
+    const { contentId, provider, raw, contributorId } = urDto
+    const publicMetrics = new PublicMetrics()
+    publicMetrics.retweet_count = raw.data.public_metrics?.retweet_count ?? 0
+    publicMetrics.reply_count = raw.data.public_metrics?.reply_count ?? 0
+    publicMetrics.like_count = raw.data.public_metrics?.like_count ?? 0
+    publicMetrics.quote_count = raw.data.public_metrics?.quote_count ?? 0
+    publicMetrics.bookmark_count = raw.data.public_metrics?.bookmark_count ?? 0
+    publicMetrics.impression_count = raw.data.public_metrics?.impression_count ?? 0
+
+    try {
+      // 更新推文publicMetrics以及raw内容
+      const updatedContent = await this.contentModel
+        .findByIdAndUpdate(
+          contentId,
+          {
+            publicMetrics,
+            raw
+          },
+          { new: true, session })
+        .exec()
+      if (!updatedContent) {
+        throw new NotFoundException(`Content with ID ${contentId} not found`)
+      }
+
+      // 更新推文相关的socialUsers
+      const socialUsers = (raw.includes?.users ?? []) as XUser[]
+      await this.socialService.updateSocials({ provider, socialUsers })
+
+      // 更新点数，记录点数变化日志
+      await this.pointService.upsertPoint({
+        userId: contributorId,
+        transactionType: TransactionType.GET,
+        reason: 'Get and update raw content',
+      }, session)
+
+      await session.commitTransaction()
+      return updatedContent.toJSON()
+    } catch (error) {
+      await session.abortTransaction()
+      this.logger.error(`Failed to update raw: ${error.message}`)
+      throw error
+    } finally {
+      session.endSession()
+    }
+  }
+
 
   /**
    * 更新互动指标

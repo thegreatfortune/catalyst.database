@@ -6,6 +6,7 @@ import { XUser } from '../schemas/social.schema'
 import { RemoveSocialDto } from './dto/remove-social.dto'
 import { UpdateSocialDto } from './dto/update-social.dto'
 
+
 @Controller('user/social')
 export class SocialController {
     constructor(private readonly socialService: SocialService) { }
@@ -73,7 +74,7 @@ export class SocialController {
         @Body() usDto: UpdateSocialDto,
     ) {
         try {
-            return this.socialService.updateSocial(usDto)
+            return this.socialService.updateSocials(usDto)
         } catch (error) {
             if (
                 error instanceof NotFoundException ||
@@ -81,7 +82,7 @@ export class SocialController {
             ) {
                 throw error
             }
-            throw new InternalServerErrorException('更新社交账号失败')
+            throw new InternalServerErrorException('Failed to update social account!')
         }
     }
 

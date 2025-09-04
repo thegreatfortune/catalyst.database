@@ -13,8 +13,9 @@ import {
   ValidateNested,
 } from 'class-validator'
 import { Type } from 'class-transformer'
-import { ContentAttribute, ContentStatus, ContentType } from '../../schemas/content.schema'
+import { ContentAttribute, ContentStatus, ContentType, PublicMetrics } from '../../schemas/content.schema'
 import { SocialProvider } from '../../schemas/user.schema'
+import { RawTweet } from './update-content.dto'
 
 export class ProviderDataDto {
   @IsOptional()
@@ -92,69 +93,67 @@ export class MediaItemDto {
   status: string
 }
 
-export class PublicMetricsDto {
+export class PublicMetricsDto implements PublicMetrics {
   @IsNumber()
   @Min(0)
   @Type(() => Number)
-  likes: number
+  retweet_count: number
 
   @IsNumber()
   @Min(0)
   @Type(() => Number)
-  shares: number
+  reply_count: number
 
   @IsNumber()
   @Min(0)
   @Type(() => Number)
-  comments: number
+  like_count: number
 
   @IsNumber()
   @Min(0)
   @Type(() => Number)
-  views: number
+  quote_count: number
 
   @IsNumber()
   @Min(0)
   @Type(() => Number)
-  saves: number
+  bookmark_count: number
+
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  impression_count: number
 }
 
 export class CreateContentDto {
-  @IsString()
-  @IsNotEmpty()
-  userId: string
-
-  @IsString()
-  @IsNotEmpty()
-  miningUserId: string
-
-  @IsBoolean()
   @IsOptional()
-  isNative?: boolean
+  @IsMongoId()
+  userId?: string
 
-  @IsEnum(ContentType)
+  @IsOptional()
+  @IsMongoId()
+  contributorId?: string
+
   @IsNotEmpty()
+  @IsEnum(SocialProvider)
+  provider: SocialProvider
+
+  @IsNotEmpty()
+  @IsEnum(ContentType)
   contentType: ContentType
 
+  @IsNotEmpty()
   @IsArray()
   @ValidateNested({ each: true })
   contentAttributes: ContentAttribute[]
 
-  @IsEnum(SocialProvider)
   @IsNotEmpty()
-  provider: SocialProvider
-
   @IsString()
-  @IsOptional()
-  providerContentId?: string
-
-  @IsString()
-  @IsNotEmpty()
   originalContent: string
 
-  @IsString()
   @IsOptional()
-  generatedContent?: string
+  @IsString()
+  aiGeneratedContent?: string
 
   @IsOptional()
   @ValidateNested()
@@ -162,7 +161,16 @@ export class CreateContentDto {
   publicMetrics?: PublicMetricsDto
 
   @IsOptional()
-  @IsObject()
-  providerContentRawData?: Record<SocialProvider, any>
+  @IsString()
+  rawId?: string
+
+  @IsOptional()
+  @Type((options) => {
+    // 手动根据顶级 provider 选择类型
+    const provider = options?.object?.provider
+    if (provider === SocialProvider.X) return RawTweet
+    return Object
+  })
+  raw?: RawTweet
 }
 

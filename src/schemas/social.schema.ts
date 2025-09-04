@@ -187,7 +187,6 @@ export class Social {
     @Prop({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
-        index: true,
         description: '用户 ID，为null表示未绑定',
         required: false,
         default: null

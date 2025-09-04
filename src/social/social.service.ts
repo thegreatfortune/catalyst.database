@@ -117,43 +117,43 @@ export class SocialService {
     }
 
 
-    /**
-     * 更新社交账号，只负责更新社交账号信息
-     * @param usDto 更新社交账号DTO
-     * @param session 事务会话
-     * @returns 更新后的社交账号
-     */
-    async updateSocial(usDto: UpdateSocialDto, session?: ClientSession): Promise<XUser> {
-        const { provider, details } = usDto
-        try {
-            // 如果没有要更新的字段，抛出错误
-            if (Object.keys(details).length === 0) {
-                throw new BadRequestException('No fields to update')
-            }
+    // /**
+    //  * 更新社交账号，只负责更新社交账号信息
+    //  * @param usDto 更新社交账号DTO
+    //  * @param session 事务会话
+    //  * @returns 更新后的社交账号
+    //  */
+    // async updateSocial(usDto: UpdateSocialDto, session?: ClientSession): Promise<XUser> {
+    //     const { provider, socialUsers } = usDto
+    //     try {
+    //         // 如果没有要更新的字段，抛出错误
+    //         if (Object.keys(socialUsers).length === 0) {
+    //             throw new BadRequestException('No fields to update')
+    //         }
 
-            // 只使用details.id和provider作为查询条件
-            const query = { 'details.id': details.id, provider }
+    //         // 只使用details.id和provider作为查询条件
+    //         const query = { 'details.id': details.id, provider }
 
-            this.logger.log(`Updating social account with query: ${JSON.stringify(query)} and updates: ${JSON.stringify(details)}`)
+    //         this.logger.log(`Updating social account with query: ${JSON.stringify(query)} and updates: ${JSON.stringify(details)}`)
 
-            // 执行更新操作
-            const updatedSocialAccount = await this.socialModel.findOneAndUpdate(
-                query,
-                { $set: { details } },
-                { new: true, session }
-            ).exec()
+    //         // 执行更新操作
+    //         const updatedSocialAccount = await this.socialModel.findOneAndUpdate(
+    //             query,
+    //             { $set: { details } },
+    //             { new: true, session }
+    //         ).exec()
 
-            // 处理未找到账号的情况
-            if (!updatedSocialAccount) {
-                throw new NotFoundException(`No ${provider} account found with ID ${details.id}`)
-            }
+    //         // 处理未找到账号的情况
+    //         if (!updatedSocialAccount) {
+    //             throw new NotFoundException(`No ${provider} account found with ID ${details.id}`)
+    //         }
 
-            return updatedSocialAccount.toJSON().details
-        } catch (error) {
-            this.logger.error(`Failed to update social account: ${error.message}`, error.stack)
-            throw error
-        }
-    }
+    //         return updatedSocialAccount.toJSON().details
+    //     } catch (error) {
+    //         this.logger.error(`Failed to update social account: ${error.message}`, error.stack)
+    //         throw error
+    //     }
+    // }
 
     /**
      * 获取社交账号
@@ -185,14 +185,48 @@ export class SocialService {
         }
     }
 
+    /**
+     * 批量更新社交账号信息
+     * @param usDto 更新社交账号DTO
+     * @param session 事务会话
+     * @returns 更新操作结果
+     */
+    async updateSocials(usDto: UpdateSocialDto, session?: ClientSession) {
+        if (!usDto.socialUsers || usDto.socialUsers.length === 0) {
+            return { modifiedCount: 0, acknowledged: true }
+        }
 
+        try {
+            // 准备批量更新操作
+            const bulkOps = usDto.socialUsers.map(xUser => {
+                return {
+                    updateOne: {
+                        filter: { 'details.id': xUser.id, provider: SocialProvider.X },
+                        update: {
+                            $set: {
+                                details: xUser,
+                                updatedAt: new Date()
+                            }
+                        }
+                    }
+                }
+            })
+
+            const result = await this.socialModel.bulkWrite(bulkOps, { session })
+            this.logger.log(`批量更新了 ${result.modifiedCount} 个社交账号`)
+            return result
+        } catch (error) {
+            this.logger.error(`批量更新社交账号失败: ${error.message}`, error.stack)
+            throw error
+        }
+    }
 
     /**
- * 创建社交账号
- * @param csDto 创建社交账号DTO
- * @param session 事务会话
- * @returns 创建的社交账号
- */
+    * 创建社交账号
+    * @param csDto 创建社交账号DTO
+    * @param session 事务会话
+    * @returns 创建的社交账号
+    */
     private async createSocial(csDto: CreateSocialDto, session?: ClientSession): Promise<XUser> {
         const { userId, provider, details } = csDto
         try {
@@ -248,39 +282,5 @@ export class SocialService {
         }
     }
 
-    /**
-     * 批量更新社交账号信息
-     * @param xUsers X用户DTO数组
-     * @param session 事务会话
-     * @returns 更新操作结果
-     */
-    private async updateSocials(xUsers: XUserDto[], session?: ClientSession) {
-        if (!xUsers || xUsers.length === 0) {
-            return { modifiedCount: 0, acknowledged: true }
-        }
 
-        try {
-            // 准备批量更新操作
-            const bulkOps = xUsers.map(xUser => {
-                return {
-                    updateOne: {
-                        filter: { 'details.id': xUser.id, provider: SocialProvider.X },
-                        update: {
-                            $set: {
-                                details: xUser,
-                                updatedAt: new Date()
-                            }
-                        }
-                    }
-                }
-            })
-
-            const result = await this.socialModel.bulkWrite(bulkOps, { session })
-            this.logger.log(`批量更新了 ${result.modifiedCount} 个社交账号`)
-            return result
-        } catch (error) {
-            this.logger.error(`批量更新社交账号失败: ${error.message}`, error.stack)
-            throw error
-        }
-    }
 }

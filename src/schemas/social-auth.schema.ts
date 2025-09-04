@@ -8,15 +8,7 @@ import { Type } from "class-transformer"
 export type SocialAuthDocument = mongoose.HydratedDocument<SocialAuth>
 export type XAuthDocument = mongoose.HydratedDocument<XAuth>
 
-@Schema({
-    _id: false,
-    toJSON: {
-        transform: (_: XAuthDocument, ret: any) => {
-            ret.tokenExpiry = ret.tokenExpiry.toISOString()
-            return ret
-        }
-    }
-})
+@Schema({ _id: false })
 export class XAuth {
     @Prop({
         type: String,
@@ -52,14 +44,8 @@ export class XAuth {
             delete ret.__v
             ret.createdAt = ret.createdAt?.toISOString()
             ret.updatedAt = ret.updatedAt?.toISOString()
-
-            ret.userId = ret.userId.toString()
-            if (ret.scope) {
-                ret.scope = (ret.scope as string).split(',')
-            }
-            if (ret.tokenExpiry) {
-                ret.tokenExpiry = ret.tokenExpiry.toISOString()
-            }
+            ret.details.tokenExpiry = ret.details.tokenExpiry.toISOString()
+            ret.details.scope = ret.details.scope.split(',')
             return ret
         },
     },

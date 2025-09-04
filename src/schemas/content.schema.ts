@@ -2,8 +2,11 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose'
 import { SocialProvider } from './user.schema'
 import mongoose from 'mongoose'
+import { RawTweet } from 'src/content/dto/update-content.dto'
+import { TweetPublicMetricsV2 } from 'twitter-api-v2'
 
 export enum ContentStatus {
+  RAW = 'raw',
   DRAFT = 'draft',
   PUBLISHED = 'published',
   SCHEDULED = 'scheduled',
@@ -32,24 +35,26 @@ export class Metrics {
   anonComments: number
 }
 
-export class PublicMetrics {
-  @Prop({ type: Number, default: 0, description: '点赞数' })
-  likes: number
+export class PublicMetrics implements TweetPublicMetricsV2 {
 
   @Prop({ type: Number, default: 0, description: '分享数' })
-  shares: number
+  retweet_count: number
 
   @Prop({ type: Number, default: 0, description: '评论数' })
-  comments: number
+  reply_count: number
 
-  @Prop({ type: Number, default: 0, description: '浏览数' })
-  views: number
+  @Prop({ type: Number, default: 0, description: '点赞数' })
+  like_count: number
+
+  @Prop({ type: Number, default: 0, description: '引用数' })
+  quote_count: number
 
   @Prop({ type: Number, default: 0, description: '收藏数' })
-  saves: number
+  bookmark_count: number
 
-  @Prop({ type: Date, default: Date.now, description: '最后更新时间' })
-  lastUpdated: Date
+  @Prop({ type: Number, default: 0, description: '曝光数' })
+  impression_count: number
+
 }
 
 export type ContentDocument = mongoose.HydratedDocument<Content>
@@ -62,51 +67,54 @@ export type ContentDocument = mongoose.HydratedDocument<Content>
       ret.id = ret._id?.toString() || ''
       delete ret._id
       delete ret.__v
-      ret.createdAt = ret.createdAt?.toISOString()
-      ret.updatedAt = ret.updatedAt?.toISOString()
+      if (ret.raw)
+        delete ret.raw
 
-      ret.userId = ret.userId.toString()
-      ret.miningUserId = ret.miningUserId.toString()
-      ret.parentId = ret.parentId?.toString()
-      ret.rootId = ret.rootId?.toString()
-      ret.lastEditedTime = ret.lastEditedTime?.toISOString()
-      ret.scheduledTime = ret.scheduledTime?.toISOString()
-      ret.publishedTime = ret.publishedTime?.toISOString()
-      ret.failedTime = ret.failedTime?.toISOString()
-      if (ret.metrics?.lastUpdated) {
-        ret.metrics.lastUpdated = ret.metrics.lastUpdated.toISOString()
-      }
-      if (ret.providerData?.twitter?.threadTweets) {
-        ret.providerData.twitter.threadTweets = ret.providerData.twitter.threadTweets.map((tweet: any) => ({
-          ...tweet,
-          tweetId: tweet.tweetId?.toString(),
-        }))
-      }
+      ret.createdAt = ret.createdAt.toISOString()
+      ret.updatedAt = ret.updatedAt.toISOString()
+
+      if (ret.userId)
+        ret.userId = ret.userId.toString()
+      if (ret.contributorId)
+        ret.contributorId = ret.contributorId.toString()
+
+      ret.lastEditedTime = ret.lastEditedTime.toISOString()
+      if (ret.scheduledTime)
+        ret.scheduledTime = ret.scheduledTime.toISOString()
+      if (ret.publishedTime)
+        ret.publishedTime = ret.publishedTime.toISOString()
+      if (ret.failedTime)
+        ret.failedTime = ret.failedTime.toISOString()
+
       return ret
     },
   }
 })
 export class Content {
   @Prop({
-    required: true,
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
+    ref: 'User',
+    required: false,
+    default: null,
+    description: '关联的userId，如为Null，表示为原始社媒内容',
   })
-  userId: string
+  userId?: string | null
 
   @Prop({
-    required: true,
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
+    ref: 'User',
+    required: false,
+    default: null
   })
-  miningUserId: string
+  contributorId?: string | null
 
   @Prop({
-    type: Boolean,
-    default: true,
-    description: '是否为原生内容'
+    type: String,
+    required: true,
+    enum: SocialProvider,
+    description: '内容提供者',
   })
-  isNative: boolean
+  provider: SocialProvider
 
   @Prop({
     required: true,
@@ -125,14 +133,6 @@ export class Content {
   contentAttributes: ContentAttribute[]
 
   @Prop({
-    type: String,
-    required: true,
-    enum: SocialProvider,
-    description: '内容提供者',
-  })
-  provider: SocialProvider
-
-  @Prop({
     required: true,
     type: String,
     description: '原始内容',
@@ -143,35 +143,13 @@ export class Content {
     type: String,
     description: '生成的内容',
   })
-  generatedContent?: string
-
-  @Prop({
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Content',
-    description: '父内容',
-  })
-  parentId?: Content
-
-  @Prop({
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Content',
-    description: '根内容',
-  })
-  rootId?: Content
-
-  @Prop({
-    type: Number,
-    default: 0,
-    min: 0,
-    description: '内容等级'
-  })
-  contentLevel: number
+  aiGeneratedContent?: string
 
   @Prop({
     type: String,
     description: '外部内容ID',
   })
-  providerContentId?: string
+  rawId?: string
 
   @Prop({
     required: true,
@@ -188,53 +166,10 @@ export class Content {
   publicMetrics: PublicMetrics
 
   @Prop({
-    type: Object,
+    type: mongoose.Schema.Types.Mixed,
     description: '平台原始内容'
   })
-  providerContentRawData: Record<SocialProvider, any>
-
-  // @Prop({ type: [Object] })
-  // media: {
-  //   type: string
-  //   url: string
-  //   storageProvider: string
-  //   originalFilename: string
-  //   mimeType: string
-  //   size: number
-  //   dimensions?: {
-  //     width: number
-  //     height: number
-  //   }
-  //   duration?: number
-  //   thumbnailUrl?: string
-  //   alt?: string
-  //   metadata?: Record<string, any>
-  //   status: string
-  //   createdAt: Date
-  // }[]
-
-  // @Prop({ type: Object })
-  // analysis: {
-  //   sentiment?: string
-  //   topics?: string[]
-  //   keywords?: string[]
-  //   contentQuality?: {
-  //     score: number
-  //     feedback: string
-  //   }
-  //   moderationResults?: {
-  //     flags: string[]
-  //     safetyScore: number
-  //   }
-  // }
-
-  // @Prop({ type: [Object] })
-  // versions: {
-  //   content: string
-  //   timestamp: Date
-  //   reason: string
-  //   generatedBy: string
-  // }[]
+  raw: any
 
   @Prop({
     type: String,
@@ -246,9 +181,10 @@ export class Content {
   // draft状态的最后编辑时间
   @Prop({
     type: Date,
+    required: true,
     default: Date.now,
   })
-  lastEditedTime?: Date
+  lastEditedTime: Date
 
   // scheduled状态的发布时间
   @Prop({
@@ -278,22 +214,24 @@ export class Content {
 export const ContentSchema = SchemaFactory.createForClass(Content)
 
 // 创建索引
-ContentSchema.index({ userId: 1 })
+ContentSchema.index({ userId: 1 }, { partialFilterExpression: { userId: { $ne: null } } })
+ContentSchema.index({ userId: 1, provider: 1 }, { partialFilterExpression: { userId: { $ne: null } } })
+ContentSchema.index({ userId: 1, contentType: 1, contentAttributes: 1 }, { partialFilterExpression: { userId: { $ne: null } } })
+ContentSchema.index({ contributorId: 1 }, { partialFilterExpression: { contributorId: { $ne: null } } })
+ContentSchema.index({ contributorId: 1, provider: 1 }, { partialFilterExpression: { contributorId: { $ne: null } } })
+ContentSchema.index({ contributorId: 1, contentType: 1, contentAttributes: 1 }, { partialFilterExpression: { contributorId: { $ne: null } } })
 ContentSchema.index({ contentType: 1 })
 ContentSchema.index({ contentAttributes: 1 })
 ContentSchema.index({ provider: 1 })
-ContentSchema.index({ parentId: 1 })
-ContentSchema.index({ rootId: 1 })
-ContentSchema.index({ userId: 1, contentType: 1 })
-ContentSchema.index({ userId: 1, provider: 1 })
 ContentSchema.index({ contentType: 1, contentAttributes: 1 })
-ContentSchema.index({ providerContentId: 1 })
+ContentSchema.index({ rawId: 1 }, { partialFilterExpression: { rawId: { $ne: null } } })
 ContentSchema.index({ status: 1 })
 ContentSchema.index({ createdAt: -1 })
-ContentSchema.index({ 'metrics.likes': -1 })
-ContentSchema.index({ 'metrics.shares': -1 })
-ContentSchema.index({ 'metrics.comments': -1 })
-ContentSchema.index({ 'metrics.views': -1 })
-ContentSchema.index({ 'metrics.saves': -1 })
-
+ContentSchema.index({ 'metrics.anonComments': -1 })
+ContentSchema.index({ 'publicMetrics.retweet_count': -1 })
+ContentSchema.index({ 'publicMetrics.reply_count': -1 })
+ContentSchema.index({ 'publicMetrics.like_count': -1 })
+ContentSchema.index({ 'publicMetrics.quote_count': -1 })
+ContentSchema.index({ 'publicMetrics.bookmark_count': -1 })
+ContentSchema.index({ 'publicMetrics.impression_count': -1 })
 

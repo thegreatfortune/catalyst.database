@@ -1,21 +1,28 @@
 // src/database/dto/update-content.dto.ts
-import { IsNotEmpty, IsNumber, IsOptional, IsString, Min, ValidateNested } from 'class-validator'
+import { IsEnum, IsMongoId, IsNotEmpty, IsNumber, IsOptional, IsString, Min, ValidateNested } from 'class-validator'
 import { Type } from 'class-transformer'
 import { PublicMetricsDto } from './create-content.dto'
+import type { ApiV2Includes, TweetV2, TweetV2SingleResult } from 'twitter-api-v2'
+import { ContentType } from '../../schemas/content.schema'
+import { SocialProvider } from 'src/schemas/user.schema'
+
+export class RawTweet implements Required<Pick<TweetV2SingleResult, 'data' | 'includes'>> {
+  @IsNotEmpty()
+  data: TweetV2
+
+  @IsNotEmpty()
+  includes: ApiV2Includes
+}
+
 
 export class PublishContentDto {
-  @IsString()
+  @IsMongoId()
   @IsNotEmpty()
   contentId: string
 
   @IsString()
   @IsNotEmpty()
-  providerContentId: string
-
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => PublicMetricsDto)
-  publicMetrics?: PublicMetricsDto
+  rawId: string
 }
 
 export class MetricsDto {
@@ -24,19 +31,42 @@ export class MetricsDto {
   changedAnonComments: number
 }
 
-export class UpdateMetricsDto {
+// export class UpdateMetricsDto {
+//   @IsString()
+//   @IsNotEmpty()
+//   contentId: string
+
+//   @IsOptional()
+//   @ValidateNested()
+//   @Type(() => PublicMetricsDto)
+//   publicMetrics?: PublicMetricsDto
+
+//   @IsOptional()
+//   @ValidateNested()
+//   @Type(() => MetricsDto)
+//   metrics?: MetricsDto
+// }
+
+export class UpdateRawDto {
   @IsString()
   @IsNotEmpty()
   contentId: string
 
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => PublicMetricsDto)
-  publicMetrics?: PublicMetricsDto
+  @IsNotEmpty()
+  @IsEnum(SocialProvider)
+  provider: SocialProvider
 
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => MetricsDto)
-  metrics?: MetricsDto
+  @IsNotEmpty()
+  @IsMongoId()
+  contributorId: string
+
+  @IsNotEmpty()
+  @Type((options) => {
+    // 手动根据顶级 provider 选择类型
+    const provider = options?.object?.provider
+    if (provider === SocialProvider.X) return RawTweet
+    return Object
+  })
+  raw: RawTweet
+
 }
-

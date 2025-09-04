@@ -3,9 +3,13 @@ import { IsEnum, IsNumber, IsString } from "class-validator"
 
 export enum SortType {
     createdAt,
-    views,
-    comments,
-    likes,
+    retweetsCount,
+    replyCount,
+    likeCount,
+    quoteCount,
+    bookmarkCount,
+    impressionCount,
+    anonComments,
 }
 
 export class GetContentsDto {

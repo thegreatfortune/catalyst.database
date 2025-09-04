@@ -1,7 +1,7 @@
 import { BadRequestException, Body, Controller, Get, InternalServerErrorException, NotFoundException, Patch, Post, Query } from '@nestjs/common'
 import { ContentService } from './content.service'
 import { CreateContentDto } from './dto/create-content.dto'
-import { PublishContentDto, UpdateMetricsDto } from './dto/update-content.dto'
+import { PublishContentDto, UpdateRawDto } from './dto/update-content.dto'
 import { GetContentsDto } from './dto/get-contents.dto'
 
 @Controller('content')
@@ -15,12 +15,6 @@ export class ContentController {
     @Post()
     async create(@Body() createContentDto: CreateContentDto) {
         try {
-
-            if (createContentDto.isNative &&
-                (!createContentDto.providerContentId || !createContentDto.publicMetrics)) {
-                throw new BadRequestException('publicMetrics and providerContentId is required for native content')
-            }
-
             return await this.contentService.create(createContentDto)
         } catch (error) {
             if (error instanceof BadRequestException ||
@@ -43,6 +37,20 @@ export class ContentController {
                 throw error
             }
             throw new InternalServerErrorException('Failed to publish content!')
+        }
+    }
+
+
+    @Patch('raw')
+    async updateRaw(@Body() urDto: UpdateRawDto) {
+        try {
+            return this.contentService.updateRaw(urDto)
+        } catch (error) {
+            if (error instanceof BadRequestException ||
+                error instanceof NotFoundException) {
+                throw error
+            }
+            throw new InternalServerErrorException('Failed to update raw!')
         }
     }
 
