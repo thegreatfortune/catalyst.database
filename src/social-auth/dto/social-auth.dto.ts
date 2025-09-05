@@ -1,6 +1,6 @@
 import { Type } from "class-transformer"
 import { SocialProvider } from "../../schemas/user.schema"
-import { IsDate, IsEnum, IsMongoId, IsNotEmpty, IsString, ValidateNested } from "class-validator"
+import { IsDate, IsEnum, IsMongoId, IsNotEmpty, IsOptional, IsString, ValidateNested } from "class-validator"
 import { XAuth } from "../../schemas/social-auth.schema"
 import { GetSocialDto } from "../../social/dto/get-social.dto"
 
@@ -47,8 +47,21 @@ export class CreateSocialAuthDto {
 export class GetSocialAuthDto extends GetSocialDto {
 }
 
-export class UpdateSocialAuthDto extends CreateSocialAuthDto {
+export class UpdateSocialAuthDto extends GetSocialDto {
+    @IsOptional()
+    @ValidateNested()
+    @Type((options) => {
+        // 手动根据顶级 provider 选择类型
+        const provider = options?.object?.provider
+        if (provider === SocialProvider.X) return XAuthDto
+        return Object
+    })
+    details?: XAuthDto
 }
 
 export class RemoveSocialAuthDto extends GetSocialDto {
+}
+
+export class UpdateLastUsedAtDto extends GetSocialDto {
+
 }

@@ -10,7 +10,7 @@ export enum TransactionType {
     BIND = 'bind',         // 绑定社交媒体账号
 
     POST = 'post',         // 提交
-    COMMENT = 'comment',   // 评论
+    REPLY = 'reply',   // 评论
 
     GET = 'get',           // 获取
 

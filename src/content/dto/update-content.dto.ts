@@ -1,5 +1,5 @@
 // src/database/dto/update-content.dto.ts
-import { IsEnum, IsMongoId, IsNotEmpty, IsNumber, IsOptional, IsString, Min, ValidateNested } from 'class-validator'
+import { IsBoolean, IsEnum, IsMongoId, IsNotEmpty, IsNumber, IsOptional, IsString, Min, ValidateNested } from 'class-validator'
 import { Type } from 'class-transformer'
 import { PublicMetricsDto } from './create-content.dto'
 import type { ApiV2Includes, TweetV2, TweetV2SingleResult } from 'twitter-api-v2'
@@ -20,37 +20,16 @@ export class PublishContentDto {
   @IsNotEmpty()
   contentId: string
 
+  @IsMongoId()
+  @IsOptional()
+  contributorId?: string
+
   @IsString()
   @IsNotEmpty()
   rawId: string
 }
 
-export class MetricsDto {
-  @IsNumber()
-  @Type(() => Number)
-  changedAnonComments: number
-}
-
-// export class UpdateMetricsDto {
-//   @IsString()
-//   @IsNotEmpty()
-//   contentId: string
-
-//   @IsOptional()
-//   @ValidateNested()
-//   @Type(() => PublicMetricsDto)
-//   publicMetrics?: PublicMetricsDto
-
-//   @IsOptional()
-//   @ValidateNested()
-//   @Type(() => MetricsDto)
-//   metrics?: MetricsDto
-// }
-
 export class UpdateRawDto {
-  @IsString()
-  @IsNotEmpty()
-  contentId: string
 
   @IsNotEmpty()
   @IsEnum(SocialProvider)
@@ -68,5 +47,4 @@ export class UpdateRawDto {
     return Object
   })
   raw: RawTweet
-
 }

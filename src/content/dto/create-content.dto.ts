@@ -13,7 +13,7 @@ import {
   ValidateNested,
 } from 'class-validator'
 import { Type } from 'class-transformer'
-import { ContentAttribute, ContentStatus, ContentType, PublicMetrics } from '../../schemas/content.schema'
+import { ContentAttribute, ContentStatus, ContentType, Metrics, PublicMetrics } from '../../schemas/content.schema'
 import { SocialProvider } from '../../schemas/user.schema'
 import { RawTweet } from './update-content.dto'
 
@@ -93,6 +93,7 @@ export class MediaItemDto {
   status: string
 }
 
+
 export class PublicMetricsDto implements PublicMetrics {
   @IsNumber()
   @Min(0)
@@ -155,22 +156,22 @@ export class CreateContentDto {
   @IsString()
   aiGeneratedContent?: string
 
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => PublicMetricsDto)
-  publicMetrics?: PublicMetricsDto
+  // @IsOptional()
+  // @ValidateNested()
+  // @Type(() => PublicMetricsDto)
+  // publicMetrics?: PublicMetricsDto
 
-  @IsOptional()
-  @IsString()
-  rawId?: string
+  // @IsOptional()
+  // @IsString()
+  // rawId?: string
 
-  @IsOptional()
-  @Type((options) => {
-    // 手动根据顶级 provider 选择类型
-    const provider = options?.object?.provider
-    if (provider === SocialProvider.X) return RawTweet
-    return Object
-  })
-  raw?: RawTweet
+  // @IsOptional()
+  // @Type((options) => {
+  //   // 手动根据顶级 provider 选择类型
+  //   const provider = options?.object?.provider
+  //   if (provider === SocialProvider.X) return RawTweet
+  //   return Object
+  // })
+  // raw?: RawTweet
 }
 

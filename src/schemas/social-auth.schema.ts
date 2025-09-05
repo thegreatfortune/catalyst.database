@@ -68,6 +68,13 @@ export class SocialAuth {
     })
     provider: SocialProvider
 
+
+    @Prop({
+        required: true,
+        type: Date,
+    })
+    lastUsedAt: Date
+
     @Prop({
         type: mongoose.Schema.Types.Mixed,
         description: '平台用户原始Auth数据',

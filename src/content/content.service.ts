@@ -1,8 +1,8 @@
 // src/database/content.service.ts
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common'
 import { InjectConnection, InjectModel } from '@nestjs/mongoose'
-import mongoose, { ClientSession, Connection, Model } from 'mongoose'
-import { Content, ContentDocument, ContentStatus, ContentType, Metrics, PublicMetrics } from '../schemas/content.schema'
+import mongoose, { ClientSession, Connection, Model, Types } from 'mongoose'
+import { Content, ContentAttribute, ContentDocument, ContentStatus, ContentType, Metrics, PublicMetrics } from '../schemas/content.schema'
 import { CreateContentDto } from '../content/dto/create-content.dto'
 import { PublishContentDto, UpdateRawDto } from './dto/update-content.dto'
 import { Logger } from '@nestjs/common'
@@ -10,8 +10,9 @@ import { PointService } from '../point/point.service'
 import { TransactionType } from 'src/schemas/point.schema'
 import { GetContentsDto, SortType } from './dto/get-contents.dto'
 import { GetContentsResponseDto } from './dto/get-contents-response.dto'
-import { SocialService } from 'src/social/social.service'
-import { XUser } from 'src/schemas/social.schema'
+import { SocialService } from '../social/social.service'
+import { SocialAuthService } from '../social-auth/social-auth.service'
+import { XUser } from '../schemas/social.schema'
 
 @Injectable()
 export class ContentService {
@@ -20,6 +21,7 @@ export class ContentService {
     @InjectConnection() private connection: Connection,
     @InjectModel(Content.name) private contentModel: Model<Content>,
     private readonly socialService: SocialService,
+    private readonly socialAuthService: SocialAuthService,
     private readonly pointService: PointService,
   ) { }
 
@@ -95,32 +97,30 @@ export class ContentService {
   }
 
   /**
-   * 创建内容
+   * 创建内容,平台新推文
    * @param createContentDto 
    * @returns 
    */
   async create(ccDto: CreateContentDto): Promise<Content> {
-    const { rawId, ...rest } = ccDto
     try {
-
-      // 检查是否为原始社媒的内容，如果存在增不能重新保存
-      if (rawId) {
-        const existContent = await this.contentModel.findOne({ rawId }).exec()
-        if (existContent) {
-          throw new BadRequestException('Content with rawId already exists')
-        }
-      }
-
       const metrics = new Metrics()
       metrics.anonComments = 0
+      const publicMetrics = new PublicMetrics()
+      publicMetrics.retweet_count = 0
+      publicMetrics.reply_count = 0
+      publicMetrics.like_count = 0
+      publicMetrics.quote_count = 0
+      publicMetrics.bookmark_count = 0
+      publicMetrics.impression_count = 0
 
-      const contentDoc = new this.contentModel({
-        ...rest,
+      const content = new this.contentModel({
+        ...ccDto,
         metrics: metrics,
-        status: rawId ? ContentStatus.RAW : ContentStatus.DRAFT,
+        publicMetrics: publicMetrics,
+        status: ContentStatus.DRAFT,
       })
-      await contentDoc.save()
-      return contentDoc.toJSON()
+      await content.save()
+      return content.toJSON()
     } catch (error) {
       this.logger.error(`Failed to create content: ${error.message}`)
       throw error
@@ -133,41 +133,53 @@ export class ContentService {
    * @returns
    */
   async publish(pcDto: PublishContentDto): Promise<Content> {
-
-    const incrementValue = pcDto.contentType === ContentType.COMMENT ? 0 : 1
-
     const session = await this.connection.startSession()
     session.startTransaction()
 
     try {
+
+      const query: Record<string, any> = {
+        _id: new Types.ObjectId(pcDto.contentId),
+        userId: { $ne: null },
+      }
+
+      if (pcDto.contributorId) {
+        query.contributorId = { $exists: false }
+      }
+
+      const operation: Record<string, any> = {
+        status: ContentStatus.PUBLISHED,
+        rawId: pcDto.rawId,
+        publishedTime: new Date()
+      }
+
+      if (pcDto.contributorId) {
+        operation.contributorId = pcDto.contributorId
+      }
+
       const updatedContent = await this.contentModel
-        .findByIdAndUpdate({
-          _id: pcDto.contentId,
-          userId: { $ne: null },
-          contributorId: { $ne: null },
-        },
-          {
-            $set: {
-              status: ContentStatus.PUBLISHED,
-              rawId: pcDto.rawId,
-              publishedTime: new Date()
-            },
-            $inc: {
-              'metrics.anonComments': incrementValue
-            },
-          },
+        .findByIdAndUpdate(
+          query,
+          operation,
           { new: true, session })
         .exec()
       if (!updatedContent) {
         throw new NotFoundException(`Content with ID ${pcDto.contentId} not found`)
       }
 
-      // 更新点数，记录点数变化日志
-      await this.pointService.upsertPoint({
-        userId: updatedContent.raw.userId,
-        transactionType: updatedContent.contentType === ContentType.COMMENT ? TransactionType.COMMENT : TransactionType.POST,
-        reason: 'Publish content',
-      }, session)
+      // 如果有contributorId，即匿名模式的content，更新点数，记录点数变化日志
+      if (pcDto.contributorId) {
+        await this.pointService.upsertPoint({
+          userId: pcDto.contributorId,
+          transactionType: updatedContent.contentType === ContentType.REPLY ? TransactionType.REPLY : TransactionType.POST,
+          reason: 'Publish content',
+        }, session)
+
+        await this.socialAuthService.updateSocialAuth({
+          userId: pcDto.contributorId,
+          provider: updatedContent.provider
+        }, session)
+      }
 
       await session.commitTransaction()
 
@@ -185,7 +197,7 @@ export class ContentService {
   async updateRaw(urDto: UpdateRawDto): Promise<Content> {
     const session = await this.connection.startSession()
     session.startTransaction()
-    const { contentId, provider, raw, contributorId } = urDto
+    const { provider, raw, contributorId } = urDto
     const publicMetrics = new PublicMetrics()
     publicMetrics.retweet_count = raw.data.public_metrics?.retweet_count ?? 0
     publicMetrics.reply_count = raw.data.public_metrics?.reply_count ?? 0
@@ -196,22 +208,45 @@ export class ContentService {
 
     try {
       // 更新推文publicMetrics以及raw内容
-      const updatedContent = await this.contentModel
+      let updatedContent = await this.contentModel
         .findByIdAndUpdate(
-          contentId,
+          { rawId: raw.data.id },
           {
-            publicMetrics,
-            raw
+            $set: {
+              publicMetrics,
+              raw
+            },
+            $inc: {
+              'metrics.anonComments': 1
+            }
           },
           { new: true, session })
         .exec()
       if (!updatedContent) {
-        throw new NotFoundException(`Content with ID ${contentId} not found`)
+        const ccDto = new CreateContentDto()
+        ccDto.provider = provider
+        ccDto.contentType = ContentType.POST
+        ccDto.contentAttributes = [ContentAttribute.TEXT]
+        ccDto.originalContent = raw.data.text
+        const metrics = new Metrics()
+        metrics.anonComments = 1
+        try {
+          updatedContent = new this.contentModel({
+            ...ccDto,
+            metrics,
+            publicMetrics,
+            rawId: raw.data.id,
+            raw: raw
+          })
+          await updatedContent.save({ session })
+        } catch (error) {
+          throw new Error(`Failed to create content from raw tweet: ${error.message}`)
+        }
       }
 
-      // 更新推文相关的socialUsers
+      // 更新推文相关的 socialUsers
       const socialUsers = (raw.includes?.users ?? []) as XUser[]
-      await this.socialService.updateSocials({ provider, socialUsers })
+      await this.socialService.updateSocials({ provider, socialUsers }, session)
 
       // 更新点数，记录点数变化日志
       await this.pointService.upsertPoint({
@@ -220,8 +255,15 @@ export class ContentService {
         reason: 'Get and update raw content',
       }, session)
 
+      await this.socialAuthService.updateSocialAuth({
+        userId: contributorId,
+        provider: updatedContent.provider
+      }, session)
+
       await session.commitTransaction()
+
       return updatedContent.toJSON()
+
     } catch (error) {
       await session.abortTransaction()
       this.logger.error(`Failed to update raw: ${error.message}`)
@@ -232,68 +274,68 @@ export class ContentService {
   }
 
 
-  /**
-   * 更新互动指标
-   * @param umDto 
-   * @returns
-   */
-  async updateMetrics(umDto: UpdateMetricsDto): Promise<Content> {
-    const { contentId, publicMetrics, metrics } = umDto
-    const session = await this.connection.startSession()
-    session.startTransaction()
-    try {
-      // 构建原子操作对象
-      const updateOperations: any = {}
+  // /**
+  //  * 更新互动指标
+  //  * @param umDto 
+  //  * @returns
+  //  */
+  // async updateMetrics(umDto: UpdateMetricsDto): Promise<Content> {
+  //   const { contentId, publicMetrics, metrics } = umDto
+  //   const session = await this.connection.startSession()
+  //   session.startTransaction()
+  //   try {
+  //     // 构建原子操作对象
+  //     const updateOperations: any = {}
 
-      // 处理publicMetrics - 全量替换
-      if (publicMetrics) {
-        updateOperations.$set = {
-          'publicMetrics': {
-            ...publicMetrics,
-            lastUpdated: new Date()
-          }
-        }
-      }
+  //     // 处理publicMetrics - 全量替换
+  //     if (publicMetrics) {
+  //       updateOperations.$set = {
+  //         'publicMetrics': {
+  //           ...publicMetrics,
+  //           lastUpdated: new Date()
+  //         }
+  //       }
+  //     }
 
-      // 处理metrics - 增量更新
-      if (metrics) {
-        // 使用$inc操作符进行增量更新
-        updateOperations.$inc = {
-          'metrics.anonComments': metrics.changedAnonComments
-        }
-      }
+  //     // 处理metrics - 增量更新
+  //     if (metrics) {
+  //       // 使用$inc操作符进行增量更新
+  //       updateOperations.$inc = {
+  //         'metrics.anonComments': metrics.changedAnonComments
+  //       }
+  //     }
 
-      // 执行更新
-      const updatedContent = await this.contentModel
-        .findByIdAndUpdate(
-          contentId,
-          updateOperations,
-          { new: true, session }
-        )
-        .exec()
+  //     // 执行更新
+  //     const updatedContent = await this.contentModel
+  //       .findByIdAndUpdate(
+  //         contentId,
+  //         updateOperations,
+  //         { new: true, session }
+  //       )
+  //       .exec()
 
-      if (!updatedContent) {
-        throw new NotFoundException(`Content with ID ${contentId} not found`)
-      }
+  //     if (!updatedContent) {
+  //       throw new NotFoundException(`Content with ID ${contentId} not found`)
+  //     }
 
-      // 更新点数，记录点数变化日志
-      await this.pointService.upsertPoint({
-        userId: updatedContent.miningUserId,
-        transactionType: TransactionType.POC,
-        reason: 'Update content metrics',
-      }, session)
+  //     // 更新点数，记录点数变化日志
+  //     await this.pointService.upsertPoint({
+  //       userId: updatedContent.miningUserId,
+  //       transactionType: TransactionType.POC,
+  //       reason: 'Update content metrics',
+  //     }, session)
 
-      await session.commitTransaction()
+  //     await session.commitTransaction()
 
-      return updatedContent.toJSON()
-    } catch (error) {
-      await session.abortTransaction()
-      this.logger.error(`Failed to update metrics for content with ID ${contentId}: ${error.message}`)
-      throw error
-    } finally {
-      session.endSession()
-    }
-  }
+  //     return updatedContent.toJSON()
+  //   } catch (error) {
+  //     await session.abortTransaction()
+  //     this.logger.error(`Failed to update metrics for content with ID ${contentId}: ${error.message}`)
+  //     throw error
+  //   } finally {
+  //     session.endSession()
+  //   }
+  // }
 
   async remove(id: string): Promise<Content | null> {
     const deletedContent = await this.contentModel.findByIdAndDelete(id).exec()
@@ -319,16 +361,27 @@ export class ContentService {
 
       // 根据sortType确定排序字段
       switch (sortType) {
-        case SortType.views:
-          sortField = 'metrics.views'
+        case SortType.retweetsCount:
+          sortField = 'publicMetrics.retweet_count'
           break
-        case SortType.comments:
-          sortField = 'metrics.comments'
+        case SortType.replyCount:
+          sortField = 'publicMetrics.reply_count'
           break
-        case SortType.likes:
-          sortField = 'metrics.likes'
+        case SortType.likeCount:
+          sortField = 'publicMetrics.like_count'
           break
-        case SortType.createdAt:
+        case SortType.quoteCount:
+          sortField = 'publicMetrics.quote_count'
+          break
+        case SortType.bookmarkCount:
+          sortField = 'publicMetrics.bookmark_count'
+          break
+        case SortType.impressionCount:
+          sortField = 'publicMetrics.impression_count'
+          break
+        case SortType.anonComments:
+          sortField = 'metrics.anonComments'
+          break
         default:
           sortField = 'createdAt'
           break

@@ -16,9 +16,9 @@ import { CreateUserDto } from './dto/create-user.dto'
 import { UpdateUserDto } from './dto/update-user.dto'
 import { RefreshTokenService } from './refresh-token.service'
 import { CreateRefreshTokenDto, FindRefreshTokenDto, RemoveRefreshTokenDto } from './dto/refresh-token.dto'
-import { RandomUserDto } from './dto/random-user.dto'
+import { GetContributorDto } from './dto/get-contributor.dto'
 import { FindByWalletAddressDto } from './dto/find-by-walletaddress.dto'
-import { UserInfo } from './dto/reponse.dto'
+import { Contributor, UserInfo } from './dto/reponse.dto'
 
 @Controller('user')
 export class UserController {
@@ -106,10 +106,11 @@ export class UserController {
     }
   }
 
-  @Get('random')
-  async getRandomUserWithToken(@Query() ruDto: RandomUserDto): Promise<string> {
+  @Get('contributor')
+  async getContributor(@Query() gcDto: GetContributorDto): Promise<Contributor[]> {
     try {
-      const userId = await this.userService.findRandomUserId(ruDto.excludedUserId, ruDto.provider)
+      const { excludedUserId, provider, count } = gcDto
+      const userId = await this.userService.findContributors(excludedUserId, provider, count)
       if (!userId) {
         throw new NotFoundException('未找到绑定X账号且有有效Token的用户')
       }

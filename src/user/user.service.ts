@@ -19,7 +19,7 @@ import { UpdateUserDto } from './dto/update-user.dto'
 import { Logger } from '@nestjs/common'
 import { randomUUID } from 'node:crypto'
 import { Types, PipelineStage } from 'mongoose'
-import { UserInfo } from './dto/reponse.dto'
+import { Contributor, UserInfo } from './dto/reponse.dto'
 import { Point } from '../schemas/point.schema'
 import { Social } from '../schemas/social.schema'
 
@@ -32,6 +32,7 @@ export interface RandomUsersAggregationResult {
 export interface WeightedUser {
   _id: Types.ObjectId
   weight: number
+  accessToken: string
 }
 
 @Injectable()
@@ -190,8 +191,9 @@ export class UserService {
     }
   }
 
-  async findRandomUserId(excludedUserId: string, provider: SocialProvider): Promise<string> {
+  async findContributors(excludedUserId: string, provider: SocialProvider, count: number): Promise<Contributor[]> {
     try {
+
       this.logger.log(`开始基于权重随机选择${provider}平台用户，排除用户ID: ${excludedUserId}`)
 
       // 确保将字符串ID转换为ObjectId进行比较
@@ -258,7 +260,7 @@ export class UserService {
                         new Date(),
                         {
                           $ifNull: [
-                            { $arrayElemAt: ['$authInfo.updatedAt', 0] },
+                            { $arrayElemAt: ['$authInfo.lastUsedAt', 0] },
                             new Date(0), // 如果updatedAt不存在，使用1970年
                           ],
                         },
@@ -272,10 +274,22 @@ export class UserService {
           },
         },
         {
+          $sort: { weight: -1 }
+        },
+        {
+          $limit: 500
+        },
+        {
           $group: {
             _id: null,
             totalWeight: { $sum: '$weight' },
-            users: { $push: { _id: '$_id', weight: '$weight' } }
+            users: {
+              $push: {
+                _id: '$_id',
+                weight: '$weight',
+                accessToken: { $arrayElemAt: ['$authInfo.accessToken', 0] }
+              }
+            }
           }
         }
       ]
@@ -287,33 +301,42 @@ export class UserService {
         throw new NotFoundException(`没有可用的${provider}平台用户或总权重为0`)
       }
 
-      const { totalWeight, users } = result[0] as RandomUsersAggregationResult
+      let { totalWeight, users } = result[0] as RandomUsersAggregationResult
 
-      const randomNumber = Math.random() * totalWeight
+      const contributors: Contributor[] = []
+      while (contributors.length < count && users.length > 0) {
+        const randomNumber = Math.random() * totalWeight
 
-      let cumulativeWeight = 0
-      let selectedUser: WeightedUser | null = null
+        let cumulativeWeight = 0
+        let selectedUser: WeightedUser | null = null
 
-      for (const user of users) {
-        cumulativeWeight += user.weight
-        if (cumulativeWeight >= randomNumber) {
-          selectedUser = user
-          break
+        for (const user of users) {
+          cumulativeWeight += user.weight
+          if (cumulativeWeight >= randomNumber) {
+            selectedUser = user
+            break
+          }
         }
+
+        if (!selectedUser) break
+
+        // 将选中的用户添加到结果，并从 users 中移除以避免重复
+        contributors.push({ userId: selectedUser._id.toString(), accessToken: selectedUser.accessToken })
+
+        users = users.filter(u => !u._id.equals(selectedUser!._id))
+        // 更新 totalWeight，移除已选用户的权重
+        totalWeight -= selectedUser.weight
       }
 
-      if (!selectedUser) {
-        this.logger.warn(`未能找到符合条件的${provider}平台用户`)
-        throw new NotFoundException(`未能找到符合条件的${provider}平台用户`)
+      if (contributors.length < count) {
+        throw new NotFoundException(`Only found ${contributors.length} ${provider} platform users, less than requested ${count}`)
+      } else {
+        this.logger.log(`Successfully selected ${contributors.length} users: ${contributors.map(c => c.userId).join(', ')}`)
       }
 
-      this.logger.log(`成功选择用户ID: ${selectedUser._id.toString()}`)
-
-      // 返回符合 RandomUserResponseDto 的数据结构
-      return selectedUser._id.toString()
-
+      return contributors
     } catch (error) {
-      this.logger.error(`加权随机选择${provider}平台用户失败`, error)
+      this.logger.error(`Failed to prioritize select ${provider} platform users`, error)
       throw error
     }
   }
@@ -426,5 +449,4 @@ export class UserService {
 
     return flattened
   }
-
 }

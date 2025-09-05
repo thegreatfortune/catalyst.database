@@ -18,7 +18,6 @@ export class PointService {
 
     async upsertPoint(updatePointDto: UpdatePointDto, session?: ClientSession): Promise<Point> {
         try {
-
             const { userId, transactionType } = updatePointDto
             const pointsChange = TransactionTypePoint[transactionType]
             const currentPoint = await this.pointModel.findOne({ userId }, null, { session }).exec()

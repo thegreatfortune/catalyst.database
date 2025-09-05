@@ -6,3 +6,8 @@ export interface UserInfo extends User {
     socials?: Array<Omit<Social, 'userId'>>
     points?: Omit<Point, 'userId'>
 }
+
+export interface Contributor {
+    userId: string
+    accessToken: string
+}

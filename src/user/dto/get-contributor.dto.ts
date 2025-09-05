@@ -1,7 +1,7 @@
 import { SocialProvider } from "src/schemas/user.schema"
-import { IsEnum, IsNotEmpty, IsMongoId, IsString } from "class-validator"
+import { IsEnum, IsNotEmpty, IsMongoId, IsString, IsNumber } from "class-validator"
 
-export class RandomUserDto {
+export class GetContributorDto {
     @IsString()
     @IsMongoId()
     @IsNotEmpty()
@@ -10,4 +10,8 @@ export class RandomUserDto {
     @IsEnum(SocialProvider)
     @IsNotEmpty()
     provider: SocialProvider
+
+    @IsNumber()
+    @IsNotEmpty()
+    count: number
 }

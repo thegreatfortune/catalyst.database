@@ -17,7 +17,7 @@ export enum ContentType {
   POST = 'post',
   THREAD = 'thread',
   LONGPOST = 'longPost',
-  COMMENT = 'comment',
+  REPLY = 'reply',
   STORY = 'story'
 }
 
@@ -169,7 +169,7 @@ export class Content {
     type: mongoose.Schema.Types.Mixed,
     description: '平台原始内容'
   })
-  raw: any
+  raw?: any
 
   @Prop({
     type: String,

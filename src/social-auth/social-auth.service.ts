@@ -2,7 +2,7 @@ import { Injectable, Logger, NotFoundException, BadRequestException } from '@nes
 import { InjectModel } from '@nestjs/mongoose'
 import { ClientSession, Model, Types } from 'mongoose'
 import { SocialAuth, XAuth } from '../schemas/social-auth.schema'
-import { CreateSocialAuthDto, UpdateSocialAuthDto, GetSocialAuthDto, RemoveSocialAuthDto } from './dto/social-auth.dto'
+import { CreateSocialAuthDto, UpdateSocialAuthDto, GetSocialAuthDto, RemoveSocialAuthDto, UpdateLastUsedAtDto } from './dto/social-auth.dto'
 
 
 @Injectable()
@@ -45,22 +45,36 @@ export class SocialAuthService {
         }
     }
 
+    /**
+     * 更新社交账号
+     * @param usaDto 更新社交账号DTO，如不提供details，则视为更新lastUsedAt
+     * @param session 
+     * @returns 
+     */
     async updateSocialAuth(usaDto: UpdateSocialAuthDto, session?: ClientSession): Promise<XAuth> {
         try {
             const { userId, provider, details } = usaDto
-
             // 如果没有要更新的字段，抛出错误
-            if (Object.keys(details).length !== 4) {
+            if (details && Object.keys(details).length !== 4) {
                 throw new BadRequestException('Update fields must be accessToken, refreshToken, tokenExpiry, scope')
+            }
+
+            const operation: Record<string, any> = {}
+            if (details) {
+                operation.details = details
+            } else {
+                operation.lastUsedAt = new Date()
             }
 
             const updatedSocialAuth = await this.socialAuthModel.findOneAndUpdate(
                 {
-                    userId,
+                    userId: new Types.ObjectId(userId),
                     provider
                 },
-                { $set: details },
-                { new: true, session }
+                {
+                    $set: operation
+                },
+                { new: true, session, }
             ).exec()
 
             if (!updatedSocialAuth) {
@@ -79,7 +93,7 @@ export class SocialAuthService {
             const { userId, provider } = rsaDto
             const removedSocialAuth = await this.socialAuthModel.findOneAndDelete(
                 {
-                    userId,
+                    userId: new Types.ObjectId(userId),
                     provider
                 },
                 { session }
