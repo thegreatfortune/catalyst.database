@@ -15,7 +15,10 @@ export class SocialAuthService {
 
     async createSocialAuth(csaDto: CreateSocialAuthDto, session?: ClientSession): Promise<XAuth> {
         try {
-            const createdSocialAuth = new this.socialAuthModel(csaDto)
+            const createdSocialAuth = new this.socialAuthModel({
+                ...csaDto,
+                lastUsedAt: new Date()
+            })
             await createdSocialAuth.save({ session })
             return createdSocialAuth.toJSON().details
         } catch (error) {
