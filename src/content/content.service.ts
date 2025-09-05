@@ -233,10 +233,12 @@ export class ContentService {
         try {
           updatedContent = new this.contentModel({
             ...ccDto,
+            status: ContentStatus.RAW,
             metrics,
             publicMetrics,
             rawId: raw.data.id,
-            raw: raw
+            raw: raw,
+            createdAt: raw.data.created_at ? new Date(raw.data.created_at) : new Date()
           })
           await updatedContent.save({ session })
         } catch (error) {
@@ -273,70 +275,6 @@ export class ContentService {
     }
   }
 
-
-  // /**
-  //  * 更新互动指标
-  //  * @param umDto 
-  //  * @returns
-  //  */
-  // async updateMetrics(umDto: UpdateMetricsDto): Promise<Content> {
-  //   const { contentId, publicMetrics, metrics } = umDto
-  //   const session = await this.connection.startSession()
-  //   session.startTransaction()
-  //   try {
-  //     // 构建原子操作对象
-  //     const updateOperations: any = {}
-
-  //     // 处理publicMetrics - 全量替换
-  //     if (publicMetrics) {
-  //       updateOperations.$set = {
-  //         'publicMetrics': {
-  //           ...publicMetrics,
-  //           lastUpdated: new Date()
-  //         }
-  //       }
-  //     }
-
-  //     // 处理metrics - 增量更新
-  //     if (metrics) {
-  //       // 使用$inc操作符进行增量更新
-  //       updateOperations.$inc = {
-  //         'metrics.anonComments': metrics.changedAnonComments
-  //       }
-  //     }
-
-  //     // 执行更新
-  //     const updatedContent = await this.contentModel
-  //       .findByIdAndUpdate(
-  //         contentId,
-  //         updateOperations,
-  //         { new: true, session }
-  //       )
-  //       .exec()
-
-  //     if (!updatedContent) {
-  //       throw new NotFoundException(`Content with ID ${contentId} not found`)
-  //     }
-
-  //     // 更新点数，记录点数变化日志
-  //     await this.pointService.upsertPoint({
-  //       userId: updatedContent.miningUserId,
-  //       transactionType: TransactionType.POC,
-  //       reason: 'Update content metrics',
-  //     }, session)
-
-  //     await session.commitTransaction()
-
-  //     return updatedContent.toJSON()
-  //   } catch (error) {
-  //     await session.abortTransaction()
-  //     this.logger.error(`Failed to update metrics for content with ID ${contentId}: ${error.message}`)
-  //     throw error
-  //   } finally {
-  //     session.endSession()
-  //   }
-  // }
-
   async remove(id: string): Promise<Content | null> {
     const deletedContent = await this.contentModel.findByIdAndDelete(id).exec()
     if (!deletedContent) {
@@ -352,7 +290,7 @@ export class ContentService {
    */
   async getContents(gcDto: GetContentsDto) {
     try {
-      const { limit = 10, page = 1, sort = 'desc', sortType = SortType.createdAt } = gcDto
+      const { provider, limit = 10, page = 1, sort = 'desc', sortType = SortType.createdAt } = gcDto
       const skip = (page - 1) * limit
 
       // 构建排序条件
@@ -394,7 +332,7 @@ export class ContentService {
 
       // 查询当前页数据
       const contents = await this.contentModel
-        .find()
+        .find({ provider, status: { $in: [ContentStatus.PUBLISHED, ContentStatus.RAW] } })
         .sort(sortOptions)
         .skip(skip)
         .limit(limit)
@@ -413,6 +351,8 @@ export class ContentService {
         hasNextPage: page < totalPages,
         hasPreviousPage: page > 1
       }
+
+      console.log('response', response)
 
       return response
     } catch (error) {

@@ -42,7 +42,11 @@ export class ContentController {
         }
     }
 
-
+    /**
+     * 更新raw内容
+     * @param urDto UpdateRawDto 
+     * @returns 
+     */
     @Patch('raw')
     async updateRaw(@Body() urDto: UpdateRawDto) {
         try {
@@ -56,24 +60,11 @@ export class ContentController {
         }
     }
 
-    // // 更新互动指标
-    // @Patch('metrics')
-    // async updateMetrics(@Body() updateMetricsDto: UpdateMetricsDto) {
-    //     try {
-    //         // 如果没有提供任何更新数据，抛出异常
-    //         if (!updateMetricsDto.publicMetrics && !updateMetricsDto.metrics) {
-    //             throw new BadRequestException('No metrics data provided for update')
-    //         }
-    //         return this.contentService.updateMetrics(updateMetricsDto)
-    //     } catch (error) {
-    //         if (error instanceof BadRequestException ||
-    //             error instanceof NotFoundException) {
-    //             throw error
-    //         }
-    //         throw new InternalServerErrorException('Failed to update metrics!')
-    //     }
-    // }
-
+    /**
+     * 获取内容列表
+     * @param gcDto GetContentsDto 
+     * @returns 
+     */
     @Get()
     async getContents(@Query() gcDto: GetContentsDto) {
         try {

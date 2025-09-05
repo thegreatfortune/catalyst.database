@@ -1,18 +1,24 @@
 import { Type } from "class-transformer"
-import { IsEnum, IsNumber, IsString } from "class-validator"
+import { IsEnum, IsNotEmpty, IsNumber, IsString } from "class-validator"
+import { SocialProvider } from "../../schemas/user.schema"
 
 export enum SortType {
-    createdAt,
-    retweetsCount,
-    replyCount,
-    likeCount,
-    quoteCount,
-    bookmarkCount,
-    impressionCount,
-    anonComments,
+    createdAt = 'createdAt',
+    retweetsCount = 'retweetsCount',
+    replyCount = 'replyCount',
+    likeCount = 'likeCount',
+    quoteCount = 'quoteCount',
+    bookmarkCount = 'bookmarkCount',
+    impressionCount = 'impressionCount',
+    anonComments = 'anonComments',
 }
 
 export class GetContentsDto {
+
+    @IsNotEmpty()
+    @IsEnum(SocialProvider)
+    provider: SocialProvider
+
     @IsNumber()
     @Type(() => Number)
     limit: number
@@ -22,6 +28,7 @@ export class GetContentsDto {
     page: number
 
     @IsString()
+    @IsEnum(['asc', 'desc'])
     sort: 'asc' | 'desc'
 
     @IsEnum(SortType)
