@@ -22,6 +22,7 @@ import { Types, PipelineStage } from 'mongoose'
 import { Contributor, UserInfo } from './dto/reponse.dto'
 import { Point } from '../schemas/point.schema'
 import { Social } from '../schemas/social.schema'
+import { PointService } from '../point/point.service'
 
 export interface RandomUsersAggregationResult {
   _id: null
@@ -32,7 +33,6 @@ export interface RandomUsersAggregationResult {
 export interface WeightedUser {
   _id: Types.ObjectId
   weight: number
-  accessToken: string
 }
 
 @Injectable()
@@ -43,6 +43,7 @@ export class UserService {
     @InjectModel(Point.name) private pointModel: Model<Point>,
     @InjectModel(Social.name) private socialModel: Model<Social>,
     @InjectConnection() private connection: Connection,
+    private readonly pointService: PointService
   ) { }
 
 
@@ -52,7 +53,10 @@ export class UserService {
    * @returns 
    */
   async create(createUserDto: CreateUserDto): Promise<UserInfo> {
+    const session = await this.connection.startSession()
+    session.startTransaction()
     try {
+
       const preferences: Preferences = {
         ui: {
           language: Language.zhCN,
@@ -77,17 +81,25 @@ export class UserService {
       }
 
       const createdUser = new this.userModel(user)
-      await createdUser.save()
+      await createdUser.save({ session })
+
+      await this.pointService.create(createdUser._id.toString(), session)
+
+      await session.commitTransaction()
 
       return createdUser.toJSON()
     } catch (error) {
+      await session.abortTransaction()
       this.logger.error('创建用户失败', error)
       throw error
+    } finally {
+      session.endSession()
     }
   }
 
   async findById(id: string): Promise<UserInfo> {
     try {
+      console.log('findById', id)
       // 获取用户基本信息
       const user = await this.userModel.findById(id).exec()
       if (!user) {
@@ -191,7 +203,7 @@ export class UserService {
     }
   }
 
-  async findContributors(excludedUserId: string, provider: SocialProvider, count: number): Promise<Contributor[]> {
+  async findContributorIds(excludedUserId: string, provider: SocialProvider, count: number): Promise<string[]> {
     try {
 
       this.logger.log(`开始基于权重随机选择${provider}平台用户，排除用户ID: ${excludedUserId}`)
@@ -206,7 +218,7 @@ export class UserService {
       const pipeline: PipelineStage[] = [
         {
           $lookup: {
-            from: 'socialauths', // SocialAuth 集合名称
+            from: 'social_auths', // SocialAuth 集合名称
             let: { userId: '$_id' },
             pipeline: [
               {
@@ -220,16 +232,16 @@ export class UserService {
                           if: { $eq: ['$provider', SocialProvider.X] },
                           then: {
                             $and: [
-                              { $ne: ['$refreshToken', ''] },
-                              { $ne: ['$refreshToken', null] },
-                              { $ifNull: ['$refreshToken', false] }
+                              { $ne: ['$details.refreshToken', ''] },
+                              { $ne: ['$details.refreshToken', null] },
+                              { $ifNull: ['$details.refreshToken', false] }
                             ]
                           },
                           else: {
                             $and: [
-                              { $ne: ['$accessToken', ''] },
-                              { $ne: ['$accessToken', null] },
-                              { $ifNull: ['$accessToken', false] }
+                              { $ne: ['$details.accessToken', ''] },
+                              { $ne: ['$details.accessToken', null] },
+                              { $ifNull: ['$details.accessToken', false] }
                             ]
                           }
                         }
@@ -250,6 +262,11 @@ export class UserService {
         },
         {
           $addFields: {
+            authInfo: { $arrayElemAt: ['$authInfo', 0] }
+          }
+        },
+        {
+          $addFields: {
             weight: {
               $max: [
                 1,
@@ -260,7 +277,7 @@ export class UserService {
                         new Date(),
                         {
                           $ifNull: [
-                            { $arrayElemAt: ['$authInfo.lastUsedAt', 0] },
+                            '$authInfo.lastUsedAt',
                             new Date(0), // 如果updatedAt不存在，使用1970年
                           ],
                         },
@@ -286,8 +303,7 @@ export class UserService {
             users: {
               $push: {
                 _id: '$_id',
-                weight: '$weight',
-                accessToken: { $arrayElemAt: ['$authInfo.accessToken', 0] }
+                weight: '$weight'
               }
             }
           }
@@ -295,6 +311,7 @@ export class UserService {
       ]
 
       const result = await this.userModel.aggregate(pipeline).exec()
+      console.log('getContributors 查询结果', result)
 
       if (!result.length || result[0].totalWeight === 0) {
         this.logger.warn(`没有可用的${provider}平台用户或总权重为0`)
@@ -303,8 +320,8 @@ export class UserService {
 
       let { totalWeight, users } = result[0] as RandomUsersAggregationResult
 
-      const contributors: Contributor[] = []
-      while (contributors.length < count && users.length > 0) {
+      const contributorIds: string[] = []
+      while (contributorIds.length < count && users.length > 0) {
         const randomNumber = Math.random() * totalWeight
 
         let cumulativeWeight = 0
@@ -321,20 +338,19 @@ export class UserService {
         if (!selectedUser) break
 
         // 将选中的用户添加到结果，并从 users 中移除以避免重复
-        contributors.push({ userId: selectedUser._id.toString(), accessToken: selectedUser.accessToken })
+        contributorIds.push(selectedUser._id.toString())
 
         users = users.filter(u => !u._id.equals(selectedUser!._id))
         // 更新 totalWeight，移除已选用户的权重
         totalWeight -= selectedUser.weight
       }
 
-      if (contributors.length < count) {
-        throw new NotFoundException(`Only found ${contributors.length} ${provider} platform users, less than requested ${count}`)
+      if (contributorIds.length < count) {
+        throw new NotFoundException(`Only found ${contributorIds.length} ${provider} platform users, less than requested ${count}`)
       } else {
-        this.logger.log(`Successfully selected ${contributors.length} users: ${contributors.map(c => c.userId).join(', ')}`)
+        this.logger.log(`Successfully selected ${contributorIds.length} users: ${contributorIds.join(', ')}`)
       }
-
-      return contributors
+      return contributorIds
     } catch (error) {
       this.logger.error(`Failed to prioritize select ${provider} platform users`, error)
       throw error

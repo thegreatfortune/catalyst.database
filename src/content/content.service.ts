@@ -209,7 +209,7 @@ export class ContentService {
     try {
       // 更新推文publicMetrics以及raw内容
       let updatedContent = await this.contentModel
-        .findByIdAndUpdate(
+        .findOneAndUpdate(
           { rawId: raw.data.id },
           {
             $set: {

@@ -106,11 +106,11 @@ export class UserController {
     }
   }
 
-  @Get('contributor')
-  async getContributor(@Query() gcDto: GetContributorDto): Promise<Contributor[]> {
+  @Get('contributors')
+  async getContributors(@Query() gcDto: GetContributorDto): Promise<string[]> {
     try {
       const { excludedUserId, provider, count } = gcDto
-      const userId = await this.userService.findContributors(excludedUserId, provider, count)
+      const userId = await this.userService.findContributorIds(excludedUserId, provider, count)
       if (!userId) {
         throw new NotFoundException('未找到绑定X账号且有有效Token的用户')
       }

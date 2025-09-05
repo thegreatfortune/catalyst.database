@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
-import { ClientSession, Model } from 'mongoose'
+import { ClientSession, Model, Types } from 'mongoose'
 import { Point, PointTransaction, TransactionTypePoint } from '../schemas/point.schema'
 import { UpdatePointDto } from './dto/create-point-transaction.dto'
 import { Logger } from '@nestjs/common'
@@ -16,11 +16,33 @@ export class PointService {
         @InjectModel(PointTransaction.name) private pointTransactionModel: Model<PointTransaction>,
     ) { }
 
+    async create(userId: string, session?: ClientSession): Promise<Point> {
+        try {
+
+            const createdPoint = new this.pointModel({
+                userId,
+                points: 0,
+                count: 0
+            })
+            await createdPoint.save({ session })
+
+            return createdPoint.toJSON()
+        } catch (error) {
+            this.logger.error('创建用户失败', error)
+            throw error
+        }
+    }
+
     async upsertPoint(updatePointDto: UpdatePointDto, session?: ClientSession): Promise<Point> {
         try {
             const { userId, transactionType } = updatePointDto
             const pointsChange = TransactionTypePoint[transactionType]
             const currentPoint = await this.pointModel.findOne({ userId }, null, { session }).exec()
+
+            console.log('updatePointDto', updatePointDto)
+            console.log('pointsChange', pointsChange)
+            console.log('currentPoint', currentPoint)
+
 
             if (pointsChange < 0 && (!currentPoint || currentPoint.points < Math.abs(pointsChange))) {
                 throw new InsufficientPointsException(Math.abs(pointsChange), currentPoint ? currentPoint.points : 0)
@@ -28,7 +50,7 @@ export class PointService {
 
             // 执行更新操作
             const point = await this.pointModel.findOneAndUpdate(
-                { userId },
+                { userId: new Types.ObjectId(userId) },
                 {
                     $inc: {
                         points: pointsChange,

@@ -145,7 +145,7 @@ export class CreateContentDto {
 
   @IsNotEmpty()
   @IsArray()
-  @ValidateNested({ each: true })
+  @IsEnum(ContentAttribute, { each: true })
   contentAttributes: ContentAttribute[]
 
   @IsNotEmpty()

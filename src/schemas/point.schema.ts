@@ -7,30 +7,31 @@ export type RelatedEntityDocument = mongoose.HydratedDocument<RelatedEntity>
 
 // 定义交易类型枚举
 export enum TransactionType {
-    BIND = 'bind',         // 绑定社交媒体账号
+    BIND = 'BIND',         // 绑定社交媒体账号
 
-    POST = 'post',         // 提交
-    REPLY = 'reply',   // 评论
+    POST = 'POST',         // 提交
+    REPLY = 'REPLY',   // 评论
 
-    GET = 'get',           // 获取
+    GET = 'GET',           // 获取
 
-    ANON_COMMENT = 'anonComment', // 匿名评论
-    ANON_POST = 'anonPost', // 匿名发帖
+    ANON_COMMENT = 'ANON_COMMENT', // 匿名评论
+    ANON_POST = 'ANON_POST', // 匿名发帖
 
-    BUY = 'buy', // 购买积分
+    BUY = 'BUY', // 购买积分
 
-    AI = 'ai', // AI使用
+    AI = 'AI', // AI使用
 }
 
-export enum TransactionTypePoint {
-    BIND = 1,
-    POC = 1,
-    POC_FEE = 1,
+export const TransactionTypePoint = {
+    BIND: 1,
+    POST: 1,
+    REPLY: 1,
+    GET: 1,
 
-    ANON_COMMENT = -1,
-    ANON_POST = -10,
-    BUY = -100,
-    AIPOST = -100,
+    ANON_COMMENT: -1,
+    ANON_POST: -10,
+    BUY: -100,
+    AIPOST: -100,
 }
 
 export enum RelatedEntityType {
