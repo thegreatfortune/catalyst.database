@@ -20,9 +20,12 @@ import { Logger } from '@nestjs/common'
 import { randomUUID } from 'node:crypto'
 import { Types, PipelineStage } from 'mongoose'
 import { Contributor, UserInfo } from './dto/reponse.dto'
-import { Point } from '../schemas/point.schema'
-import { Social } from '../schemas/social.schema'
-import { PointService } from '../point/point.service'
+import { Credit } from '../schemas/credit.schema'
+import { Social, SocialDocument } from '../schemas/social.schema'
+import { CreditService } from '../credit/credit.service'
+import { SocialService } from '../social/social.service'
+import { LoginUserDto } from './dto/login-user.dto'
+import { AnonymousIdentity, AnonymousIdentityDocument } from 'src/schemas/anonymout-identity.schema'
 
 export interface RandomUsersAggregationResult {
   _id: null
@@ -40,10 +43,12 @@ export class UserService {
   private readonly logger = new Logger(UserService.name);
   constructor(
     @InjectModel(User.name) private userModel: Model<User>,
-    @InjectModel(Point.name) private pointModel: Model<Point>,
+    @InjectModel(Credit.name) private creditModel: Model<Credit>,
     @InjectModel(Social.name) private socialModel: Model<Social>,
+    @InjectModel(AnonymousIdentity.name) private anonymousIdentityModel: Model<AnonymousIdentity>,
     @InjectConnection() private connection: Connection,
-    private readonly pointService: PointService
+    private readonly socialService: SocialService,
+    private readonly creditService: CreditService,
   ) { }
 
 
@@ -83,7 +88,7 @@ export class UserService {
       const createdUser = new this.userModel(user)
       await createdUser.save({ session })
 
-      await this.pointService.create(createdUser._id.toString(), session)
+      await this.creditService.create(createdUser._id.toString(), session)
 
       await session.commitTransaction()
 
@@ -97,46 +102,190 @@ export class UserService {
     }
   }
 
+  async login(luDto: LoginUserDto): Promise<UserInfo> {
+    const { walletAddress, chainId, issuedAt } = luDto
+    try {
+      // 先更新用户数据
+      const updatedUser = await this.userModel
+        .findOneAndUpdate(
+          { walletAddress, chainId },
+          { $set: { lastSignedAt: issuedAt } },
+          { new: true }
+        )
+        .exec()
+
+      if (!updatedUser) {
+        throw new NotFoundException(`User not found with walletAddress ${walletAddress} and chainId ${chainId}`)
+      }
+      // 使用聚合管道一次性获取用户及其关联数据
+      const aggregationResult = await this.userModel.aggregate([
+        { $match: { _id: updatedUser._id } },
+        {
+          $lookup: {
+            from: 'credits',
+            localField: '_id',
+            foreignField: 'userId',
+            as: 'creditData'
+          }
+        },
+        {
+          $lookup: {
+            from: 'socials',
+            localField: '_id',
+            foreignField: 'userId',
+            as: 'socialsData'
+          }
+        },
+        {
+          $lookup: {
+            from: 'anonymousIdentities',
+            let: { userId: '$_id' },
+            pipeline: [
+              {
+                $match: {
+                  $expr: { $eq: ['$userId', '$$userId'] },
+                  isDeleted: false  // 直接在聚合查询中过滤掉已删除的身份
+                }
+              },
+              { $sort: { createdAt: -1 } }  // 按创建时间降序排序
+            ],
+            as: 'anonymousIdentitiesData'
+          }
+        },
+        {
+          $project: {
+            creditData: 1,
+            socialsData: 1,
+            anonymousIdentitiesData: 1,
+            _id: 0
+          }
+        }
+      ]).exec()
+
+      if (!aggregationResult || aggregationResult.length === 0) {
+        throw new NotFoundException(`User not found with walletAddress ${walletAddress} and chainId ${chainId}`)
+      }
+
+      const creditData = aggregationResult[0].creditData
+      const socialsData = aggregationResult[0].socialsData
+      const anonymousIdentitiesData = aggregationResult[0].anonymousIdentitiesData
+
+      const credit = creditData && creditData.length > 0
+        ? this.creditModel.hydrate(creditData[0])
+        : new this.creditModel({
+          balance: 0,
+          acquiredCount: 0,
+          consumedCount: 0,
+          freePosts: []
+        })
+
+      const socials: SocialDocument[] = []
+      if (socialsData && socialsData.length > 0) {
+        for (const socialData of socialsData) {
+          socials.push(this.socialModel.hydrate(socialData))
+        }
+      }
+
+      const anonymousIdentities: AnonymousIdentityDocument[] = []
+      if (anonymousIdentitiesData && anonymousIdentitiesData.length > 0) {
+        for (const identityData of anonymousIdentitiesData) {
+          anonymousIdentities.push(this.anonymousIdentityModel.hydrate(identityData))
+        }
+      }
+
+      // 构建并返回 UserInfo 对象
+      return {
+        ...updatedUser.toJSON(),
+        credit: credit.toJSON(),
+        socials: socials.map(social => social.toJSON()),
+        anonymousIdentities: anonymousIdentities.map(identity => identity.toJSON()),
+      }
+    } catch (error) {
+      this.logger.error('用户登录失败', error)
+      throw error
+    }
+  }
+
   async findById(id: string): Promise<UserInfo> {
     try {
-      console.log('findById', id)
-      // 获取用户基本信息
-      const user = await this.userModel.findById(id).exec()
-      if (!user) {
+      const aggregationResult = await this.userModel.aggregate([
+        { $match: { _id: new Types.ObjectId(id) } },
+        {
+          $lookup: {
+            from: 'credits',
+            localField: '_id',
+            foreignField: 'userId',
+            as: 'creditData'
+          }
+        },
+        {
+          $lookup: {
+            from: 'socials',
+            localField: '_id',
+            foreignField: 'userId',
+            as: 'socialsData'
+          }
+        },
+        {
+          $lookup: {
+            from: 'anonymousIdentities',
+            let: { userId: '$_id' },
+            pipeline: [
+              {
+                $match: {
+                  $expr: { $eq: ['$userId', '$$userId'] },
+                  isDeleted: false  // 直接在聚合查询中过滤掉已删除的身份
+                }
+              },
+              { $sort: { createdAt: -1 } }  // 按创建时间降序排序
+            ],
+            as: 'anonymousIdentitiesData'
+          }
+        },
+      ]).exec()
+
+      if (!aggregationResult || aggregationResult.length === 0) {
         throw new NotFoundException(`User not found with id ${id}`)
       }
 
-      // 在返回用户数据前排序匿名身份
-      if (user.anonymousIdentities && user.anonymousIdentities.length > 0) {
+      const creditData = aggregationResult[0].creditData
+      const socialsData = aggregationResult[0].socialsData
+      const anonymousIdentitiesData = aggregationResult[0].anonymousIdentitiesData
 
-        user.anonymousIdentities = user.anonymousIdentities.filter(
-          identity => !identity.isDeleted
-        )
+      const credit = creditData && creditData.length > 0
+        ? this.creditModel.hydrate(creditData[0])
+        : new this.creditModel({
+          balance: 0,
+          acquiredCount: 0,
+          consumedCount: 0,
+          freePosts: []
+        })
 
-        user.anonymousIdentities.sort((a, b) =>
-          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-        )
+      const socials: SocialDocument[] = []
+      if (socialsData && socialsData.length > 0) {
+        for (const socialData of socialsData) {
+          socials.push(this.socialModel.hydrate(socialData))
+        }
       }
 
-      // 使用 Promise.all 并行获取积分和社交数据
-      const [points, socials] = await Promise.all([
-        // 查询用户积分
-        this.pointModel.findOne({ userId: id }).exec(),
-        // 查询用户社交账号
-        this.socialModel.find({ userId: id }).exec()
-      ])
+      const anonymousIdentities: AnonymousIdentityDocument[] = []
+      if (anonymousIdentitiesData && anonymousIdentitiesData.length > 0) {
+        for (const identityData of anonymousIdentitiesData) {
+          anonymousIdentities.push(this.anonymousIdentityModel.hydrate(identityData))
+        }
+      }
+
+      delete aggregationResult[0].creditData
+      delete aggregationResult[0].socialsData
+      delete aggregationResult[0].anonymousIdentitiesData
+      const user = this.userModel.hydrate(aggregationResult[0])
 
       // 构建并返回 UserInfo 对象
       return {
         ...user.toJSON(),
-        socials: socials.map(s => {
-          const { userId, ...social } = s.toJSON()
-          return social
-        }) || [],
-        points: points ? (() => {
-          const { userId, ...pointsData } = points.toJSON()
-          return pointsData
-        })() : { points: 0, count: 0 }
+        credit: credit.toJSON(),
+        socials: socials.map(social => social.toJSON()),
+        anonymousIdentities: anonymousIdentities.map(identity => identity.toJSON()),
       }
     } catch (error) {
       this.logger.error('使用 ID 查找用户失败', error)
@@ -144,49 +293,87 @@ export class UserService {
     }
   }
 
-  async findByWalletAddress(address: string, chainId: number): Promise<UserInfo> {
+  async findByWalletAddress(walletAddress: string, chainId: number): Promise<UserInfo> {
     try {
-      const user = await this.userModel
-        .findOne({ walletAddress: address }).exec()
-      if (!user) {
-        throw new NotFoundException(
-          `User not found with wallet address ${address} and chainId ${chainId}`,
-        )
+      const aggregationResult = await this.userModel.aggregate([
+        { $match: { walletAddress, chainId } },
+        {
+          $lookup: {
+            from: 'credits',
+            localField: '_id',
+            foreignField: 'userId',
+            as: 'creditData'
+          }
+        },
+        {
+          $lookup: {
+            from: 'socials',
+            localField: '_id',
+            foreignField: 'userId',
+            as: 'socialsData'
+          }
+        },
+        {
+          $lookup: {
+            from: 'anonymousIdentities',
+            let: { userId: '$_id' },
+            pipeline: [
+              {
+                $match: {
+                  $expr: { $eq: ['$userId', '$$userId'] },
+                  isDeleted: false  // 直接在聚合查询中过滤掉已删除的身份
+                }
+              },
+              { $sort: { createdAt: -1 } }  // 按创建时间降序排序
+            ],
+            as: 'anonymousIdentitiesData'
+          }
+        },
+      ]).exec()
+
+      if (!aggregationResult || aggregationResult.length === 0) {
+        throw new NotFoundException(`User not found with walletAddress ${walletAddress} and chainId ${chainId}`)
       }
 
-      // 在返回用户数据前排序匿名身份
-      if (user.anonymousIdentities && user.anonymousIdentities.length > 0) {
+      const creditData = aggregationResult[0].creditData
+      const socialsData = aggregationResult[0].socialsData
+      const anonymousIdentitiesData = aggregationResult[0].anonymousIdentitiesData
 
-        user.anonymousIdentities = user.anonymousIdentities.filter(
-          identity => !identity.isDeleted
-        )
+      const credit = creditData && creditData.length > 0
+        ? this.creditModel.hydrate(creditData[0])
+        : new this.creditModel({
+          balance: 0,
+          acquiredCount: 0,
+          consumedCount: 0,
+          freePosts: []
+        })
 
-        user.anonymousIdentities.sort((a, b) =>
-          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-        )
+      const socials: SocialDocument[] = []
+      if (socialsData && socialsData.length > 0) {
+        for (const socialData of socialsData) {
+          socials.push(this.socialModel.hydrate(socialData))
+        }
       }
 
-      // 使用 Promise.all 并行获取积分和社交数据
-      const [points, socials] = await Promise.all([
-        // 查询用户积分
-        this.pointModel.findOne({ userId: user._id.toString() }).exec(),
-        // 查询用户社交账号
-        this.socialModel.find({ userId: user._id.toString() }).exec()
-      ])
+      const anonymousIdentities: AnonymousIdentityDocument[] = []
+      if (anonymousIdentitiesData && anonymousIdentitiesData.length > 0) {
+        for (const identityData of anonymousIdentitiesData) {
+          anonymousIdentities.push(this.anonymousIdentityModel.hydrate(identityData))
+        }
+      }
+
+      delete aggregationResult[0].creditData
+      delete aggregationResult[0].socialsData
+      delete aggregationResult[0].anonymousIdentitiesData
+      const user = this.userModel.hydrate(aggregationResult[0])
 
       // 构建并返回 UserInfo 对象
       return {
         ...user.toJSON(),
-        socials: socials.map(s => {
-          const { userId, ...social } = s.toJSON()
-          return social
-        }) || [],
-        points: points ? (() => {
-          const { userId, ...pointsData } = points.toJSON()
-          return pointsData
-        })() : { points: 0, count: 0 }
+        credit: credit.toJSON(),
+        socials: socials.map(social => social.toJSON()),
+        anonymousIdentities: anonymousIdentities.map(identity => identity.toJSON()),
       }
-
 
     } catch (error) {
       this.logger.error('使用 wallet address 查找用户失败', error)
@@ -359,63 +546,11 @@ export class UserService {
 
   async update(id: string, updateUserDto: UpdateUserDto): Promise<UserInfo> {
     try {
-      // 如果更新包含匿名身份数据
-      if (updateUserDto.anonymousIdentities && updateUserDto.anonymousIdentities.length > 0) {
-        // 先获取当前用户数据，检查已有的匿名身份
-        const currentUser = await this.userModel.findById(id).exec()
-        if (!currentUser) {
-          throw new NotFoundException(`User not found with id ${id}`)
-        }
-
-        // 1. 检查提交的匿名身份中是否有多个活跃状态
-        const activeSubmittedIdentities = updateUserDto.anonymousIdentities.filter(identity => identity.isActive)
-        if (activeSubmittedIdentities.length > 1) {
-          throw new BadRequestException('只能有一个匿名身份处于活跃状态')
-        }
-
-        // 2. 创建一个映射，用于合并和处理所有匿名身份
-        const identityMap = new Map()
-
-        // 3. 先添加提交中的所有身份到映射
-        updateUserDto.anonymousIdentities.forEach(identity => {
-          let dateData = {}
-          if (!identity.id) {
-            identity.id = randomUUID()
-            dateData = {
-              createdAt: new Date(),
-              updatedAt: new Date()
-            }
-          }
-          identityMap.set(identity.id, { ...identity, ...dateData })
-        })
-
-
-        // 4. 处理当前用户的匿名身份，并合并到映射中
-        for (const currentIdentity of currentUser.anonymousIdentities ?? []) {
-
-          if (!identityMap.has(currentIdentity.id)) {
-            if (activeSubmittedIdentities.length > 0 && currentIdentity.isActive) {
-              currentIdentity.isActive = false
-            }
-            identityMap.set(currentIdentity.id, { ...currentIdentity })
-          } else {
-            const identity = identityMap.get(currentIdentity.id)
-            identityMap.set(currentIdentity.id, { ...currentIdentity, ...identity, updatedAt: new Date() })
-          }
-
-        }
-
-        // 5. 更新DTO中的匿名身份数据
-        updateUserDto.anonymousIdentities = Array.from(identityMap.values())
-      }
-
-      const flattenedUpdate = this.flattenObject(updateUserDto)
-
       // 先更新用户数据
       const updatedUser = await this.userModel
         .findByIdAndUpdate(
           id,
-          { $set: flattenedUpdate },
+          { $set: { ...updateUserDto } },
           { new: true }
         )
         .exec()
@@ -424,19 +559,88 @@ export class UserService {
         throw new NotFoundException(`User not found with id ${id}`)
       }
 
-      // 在应用层面过滤已删除的匿名身份
-      if (updatedUser.anonymousIdentities && updatedUser.anonymousIdentities.length > 0) {
-        updatedUser.anonymousIdentities = updatedUser.anonymousIdentities.filter(
-          identity => !identity.isDeleted
-        )
+      const aggregationResult = await this.userModel.aggregate([
+        { $match: { _id: updatedUser._id } },
+        {
+          $lookup: {
+            from: 'credits',
+            localField: '_id',
+            foreignField: 'userId',
+            as: 'creditData'
+          }
+        },
+        {
+          $lookup: {
+            from: 'socials',
+            localField: '_id',
+            foreignField: 'userId',
+            as: 'socialsData'
+          }
+        },
+        {
+          $lookup: {
+            from: 'anonymousIdentities',
+            let: { userId: '$_id' },
+            pipeline: [
+              {
+                $match: {
+                  $expr: { $eq: ['$userId', '$$userId'] },
+                  isDeleted: false  // 直接在聚合查询中过滤掉已删除的身份
+                }
+              },
+              { $sort: { createdAt: -1 } }  // 按创建时间降序排序
+            ],
+            as: 'anonymousIdentitiesData'
+          }
+        },
+        {
+          $project: {
+            creditData: 1,
+            socialsData: 1,
+            anonymousIdentitiesData: 1,
+            _id: 0
+          }
+        }
+      ]).exec()
 
-        // 排序匿名身份
-        updatedUser.anonymousIdentities.sort((a, b) =>
-          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-        )
+      if (!aggregationResult || aggregationResult.length === 0) {
+        throw new NotFoundException(`User not found with id ${id}`)
       }
 
-      return updatedUser
+      const creditData = aggregationResult[0].creditData
+      const socialsData = aggregationResult[0].socialsData
+      const anonymousIdentitiesData = aggregationResult[0].anonymousIdentitiesData
+
+      const credit = creditData && creditData.length > 0
+        ? this.creditModel.hydrate(creditData[0])
+        : new this.creditModel({
+          balance: 0,
+          acquiredCount: 0,
+          consumedCount: 0,
+          freePosts: []
+        })
+
+      const socials: SocialDocument[] = []
+      if (socialsData && socialsData.length > 0) {
+        for (const socialData of socialsData) {
+          socials.push(this.socialModel.hydrate(socialData))
+        }
+      }
+
+      const anonymousIdentities: AnonymousIdentityDocument[] = []
+      if (anonymousIdentitiesData && anonymousIdentitiesData.length > 0) {
+        for (const identityData of anonymousIdentitiesData) {
+          anonymousIdentities.push(this.anonymousIdentityModel.hydrate(identityData))
+        }
+      }
+
+      // 构建并返回 UserInfo 对象
+      return {
+        ...updatedUser.toJSON(),
+        credit: credit.toJSON(),
+        socials: socials.map(social => social.toJSON()),
+        anonymousIdentities: anonymousIdentities.map(identity => identity.toJSON()),
+      }
     } catch (error) {
       this.logger.error('更新用户失败', error)
       throw error

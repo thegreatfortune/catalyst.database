@@ -1,10 +1,10 @@
-import { PointTransaction } from "../../schemas/point.schema"
+import { CreditTransaction } from "../../schemas/credit.schema"
 
-export class GetPointTransactionsResponseDto {
+export class GetCreditTransactionsResponseDto {
     /**
      * 当前页的数据
      */
-    items: PointTransaction[]
+    items: CreditTransaction[]
 
     /**
      * 总记录数

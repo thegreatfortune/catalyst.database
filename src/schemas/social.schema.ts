@@ -165,19 +165,24 @@ export class XUser implements Pick<XUserType,
         transform: (_: SocialDocument, ret: any) => {
             delete ret._id
             delete ret.__v
+            delete ret.userId
+            delete ret.updatedAt
+
             ret.createdAt = ret.createdAt.toISOString()
-            ret.updatedAt = ret.updatedAt.toISOString()
-
-            if (ret.userId) {
-                ret.userId = ret.userId.toString()
+            ret.details = {
+                username: ret.details.username,
+                name: ret.details.name,
+                description: ret.details.description,
+                location: ret.details.location,
+                public_metrics: ret.details.public_metrics,
+                url: ret.details.url,
+                verified: ret.details.verified,
+                verified_type: ret.details.verified_type,
+                profile_image_url: ret.details.profile_image_url,
+                profile_banner_url: ret.details.profile_banner_url,
+                most_recent_tweet_id: ret.details.most_recent_tweet_id,
+                pinned_tweet_id: ret.details.pinned_tweet_id
             }
-
-            delete ret.details.id
-            delete ret.details.confirmed_email
-            delete ret.details.entities
-            delete ret.details.created_at
-            delete ret.details.protected
-
             return ret
         },
     },

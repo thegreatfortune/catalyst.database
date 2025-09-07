@@ -3,8 +3,9 @@ import { MongooseModule } from '@nestjs/mongoose'
 import { SocialAuth, SocialAuthSchema } from '../schemas/social-auth.schema'
 import { Social, SocialSchema } from '../schemas/social.schema'
 import { User, UserSchema } from '../schemas/user.schema'
-import { Point, PointSchema, PointTransaction, PointTransactionSchema } from '../schemas/point.schema'
+import { Credit, CreditSchema, CreditTransaction, CreditTransactionSchema } from '../schemas/credit.schema'
 import { Content, ContentSchema } from '../schemas/content.schema'
+import { AnonymousIdentity, AnonymousIdentitySchema } from '../schemas/anonymout-identity.schema'
 
 
 @Global()
@@ -14,9 +15,10 @@ import { Content, ContentSchema } from '../schemas/content.schema'
             { name: User.name, schema: UserSchema },
             { name: Social.name, schema: SocialSchema },
             { name: SocialAuth.name, schema: SocialAuthSchema },
-            { name: Point.name, schema: PointSchema },
+            { name: AnonymousIdentity.name, schema: AnonymousIdentitySchema },
+            { name: Credit.name, schema: CreditSchema },
             { name: Content.name, schema: ContentSchema },
-            { name: PointTransaction.name, schema: PointTransactionSchema }
+            { name: CreditTransaction.name, schema: CreditTransactionSchema },
         ]),
     ],
     exports: [MongooseModule]

@@ -10,6 +10,8 @@ import { CreateSocialAuthDto } from '../social-auth/dto/social-auth.dto'
 import { SocialProvider, User, UserDocument } from '../schemas/user.schema'
 import { SocialAuthService } from '../social-auth/social-auth.service'
 import { RemoveSocialDto } from './dto/remove-social.dto'
+import { CreditService } from '../credit/credit.service'
+import { TransactionType } from '../schemas/credit.schema'
 
 @Injectable()
 export class SocialService {
@@ -19,6 +21,7 @@ export class SocialService {
         @InjectModel(User.name) private userModel: Model<UserDocument>,
         @InjectConnection() private connection: Connection,
         private readonly socialAuthService: SocialAuthService,
+        private readonly creditService: CreditService,
     ) { }
 
     /**
@@ -66,6 +69,19 @@ export class SocialService {
                 this.createSocial(csDto, session),
                 this.socialAuthService.createSocialAuth(csaDto, session)
             ])
+
+            const followersCount = csDto.details?.public_metrics?.followers_count ?? 0
+
+            await this.creditService.update({
+                userId,
+                transactionType: followersCount >= 5000
+                    ? TransactionType.BIND_V3
+                    : followersCount >= 1000
+                        ? TransactionType.BIND_V2
+                        : TransactionType.BIND_V1,
+                reason: 'Bind social account',
+            }, session)
+
 
             // 提交事务
             await session.commitTransaction()
@@ -117,43 +133,16 @@ export class SocialService {
     }
 
 
-    // /**
-    //  * 更新社交账号，只负责更新社交账号信息
-    //  * @param usDto 更新社交账号DTO
-    //  * @param session 事务会话
-    //  * @returns 更新后的社交账号
-    //  */
-    // async updateSocial(usDto: UpdateSocialDto, session?: ClientSession): Promise<XUser> {
-    //     const { provider, socialUsers } = usDto
-    //     try {
-    //         // 如果没有要更新的字段，抛出错误
-    //         if (Object.keys(socialUsers).length === 0) {
-    //             throw new BadRequestException('No fields to update')
-    //         }
+    async findByUserId(userId: string, session?: ClientSession): Promise<Social[]> {
+        try {
+            const socialAccounts = await this.socialModel.find({ userId: new Types.ObjectId(userId) }, null, { session }).exec()
+            return socialAccounts.map(social => social.toJSON())
+        } catch (error) {
+            this.logger.error('Failed to get social accounts', error)
+            throw error
+        }
+    }
 
-    //         // 只使用details.id和provider作为查询条件
-    //         const query = { 'details.id': details.id, provider }
-
-    //         this.logger.log(`Updating social account with query: ${JSON.stringify(query)} and updates: ${JSON.stringify(details)}`)
-
-    //         // 执行更新操作
-    //         const updatedSocialAccount = await this.socialModel.findOneAndUpdate(
-    //             query,
-    //             { $set: { details } },
-    //             { new: true, session }
-    //         ).exec()
-
-    //         // 处理未找到账号的情况
-    //         if (!updatedSocialAccount) {
-    //             throw new NotFoundException(`No ${provider} account found with ID ${details.id}`)
-    //         }
-
-    //         return updatedSocialAccount.toJSON().details
-    //     } catch (error) {
-    //         this.logger.error(`Failed to update social account: ${error.message}`, error.stack)
-    //         throw error
-    //     }
-    // }
 
     /**
      * 获取社交账号

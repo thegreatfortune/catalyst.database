@@ -40,34 +40,6 @@ export class UpdatePreferencesDto {
     ai?: UpdateAiDto
 }
 
-export class AnonymousIdentityDto {
-    @IsUUID()
-    @IsOptional()
-    id?: string
-
-    @IsString()
-    @IsOptional()
-    name?: string
-
-    @IsString()
-    @IsOptional()
-    avatar?: string
-
-    @IsOptional()
-    @ValidateNested()
-    preferences?: string[]
-
-    @IsOptional()
-    @IsBoolean()
-    @Type(() => Boolean)
-    isActive?: boolean
-
-    @IsOptional()
-    @IsBoolean()
-    @Type(() => Boolean)
-    isDeleted?: boolean
-}
-
 export class UpdateUserDto {
     @IsString()
     @IsOptional()
@@ -85,9 +57,4 @@ export class UpdateUserDto {
     @ValidateNested()
     @Type(() => UpdatePreferencesDto)
     preferences?: UpdatePreferencesDto
-
-    @IsOptional()
-    @ValidateNested()
-    @Type(() => AnonymousIdentityDto)
-    anonymousIdentities?: Array<AnonymousIdentityDto>
 }

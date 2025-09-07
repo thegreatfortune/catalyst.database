@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing'
-import { PointController } from './point.controller'
+import { PointController } from './credit.controller'
 
 describe('PointController', () => {
   let controller: PointController

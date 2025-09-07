@@ -38,184 +38,6 @@ export enum Timezone {
   'America/New_York' = 'America/New_York'
 }
 
-export class AnonymousIdentity {
-  @Prop({
-    type: String,
-    required: true,
-  })
-  id: string
-
-  @Prop({
-    type: String,
-    required: true,
-  })
-  name: string
-
-  @Prop({
-    type: String,
-    required: true,
-  })
-  avatar: string
-
-  @Prop({
-    type: Array<string>,
-    required: true,
-  })
-  preferences?: string[]
-
-  @Prop({
-    type: Boolean,
-    required: true,
-  })
-  isActive: boolean
-
-  @Prop({
-    type: Boolean,
-    required: true,
-  })
-  isDeleted: boolean
-
-  @Prop({
-    type: Date,
-    required: true,
-  })
-  createdAt: Date
-
-  @Prop({
-    type: Date,
-    required: true,
-  })
-  updatedAt: Date
-}
-
-// export class Metrics {
-//   @Prop({
-//     type: Number,
-//     required: true,
-//     min: 0,
-//   })
-//   followers: number
-
-//   @Prop({
-//     type: Number,
-//     required: true,
-//     min: 0,
-//   })
-//   following: number
-
-//   @Prop({
-//     type: Number,
-//     required: true,
-//     min: 0,
-//   })
-//   totalPosts: number
-// }
-
-// export class SocialAccount {
-//   @Prop({
-//     type: String,
-//     enum: SocialProvider,
-//     required: true,
-//   })
-//   provider: SocialProvider
-
-//   @Prop({
-//     type: String,
-//     required: true,
-//   })
-//   accountId: string
-
-//   @Prop({
-//     type: String,
-//     required: true,
-//   })
-//   username: string
-
-//   @Prop({
-//     type: String
-//   })
-//   displayName?: string
-
-//   @Prop({
-//     type: String
-//   })
-//   profileUrl?: string
-
-//   @Prop({
-//     type: Metrics,
-//     required: true,
-//   })
-//   metrics: Metrics
-
-//   @Prop({
-//     type: Date,
-//     required: true,
-//   })
-//   lastSyncedAt: Date
-
-//   @Prop({
-//     type: Boolean,
-//     required: true,
-//   })
-//   isConnected: boolean
-// }
-
-// export class SocialAccountMiningState {
-//   @Prop({
-//     type: String,
-//     enum: SocialProvider,
-//     required: true,
-//   })
-//   provider: SocialProvider
-
-//   @Prop({
-//     type: Number,
-//     required: true,
-//     min: 0,
-//   })
-//   points: number
-
-//   @Prop({
-//     type: Number,
-//     required: true,
-//     min: 0,
-//   })
-//   count: number
-// }
-
-// export class SocialAccountTokenState {
-//   @Prop({
-//     type: String,
-//     enum: SocialProvider,
-//     required: true,
-//   })
-//   provider: SocialProvider
-
-//   @Prop({
-//     type: String
-//   })
-//   accessToken?: string
-
-//   @Prop({
-//     type: String
-//   })
-//   refreshToken?: string
-
-//   @Prop({
-//     type: Date
-//   })
-//   tokenExpiry?: Date
-
-//   @Prop({
-//     type: String
-//   })
-//   scope?: string
-
-//   @Prop({
-//     type: Date
-//   })
-//   lastUsedAt?: Date
-// }
 
 export class RefreshTokenInfo {
   @Prop({
@@ -385,8 +207,10 @@ export class Preferences {
       delete ret._id
       delete ret.__v
       ret.lastSignedAt = ret.lastSignedAt.toISOString()
-      ret.createdAt = ret.createdAt.toISOString()
-      ret.updatedAt = ret.updatedAt.toISOString()
+      delete ret.createdAt
+      delete ret.updatedAt
+      // ret.createdAt = ret.createdAt.toISOString()
+      // ret.updatedAt = ret.updatedAt.toISOString()
 
       if (ret.userId) {
         ret.userId = ret.userId.toString()
@@ -436,8 +260,6 @@ export class User {
   @Prop()
   refreshTokens: Array<RefreshTokenInfo>
 
-  @Prop()
-  anonymousIdentities?: Array<AnonymousIdentity>
 }
 
 export const UserSchema = SchemaFactory.createForClass(User)

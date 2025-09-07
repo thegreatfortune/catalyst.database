@@ -1,10 +1,12 @@
-import { Point } from "src/schemas/point.schema"
-import { Social } from "src/schemas/social.schema"
-import { User } from "src/schemas/user.schema"
+import { Credit } from "../../schemas/credit.schema"
+import { Social } from "../../schemas/social.schema"
+import { User } from "../../schemas/user.schema"
+import { AnonymousIdentity } from "../../schemas/anonymout-identity.schema"
 
 export interface UserInfo extends User {
     socials?: Array<Omit<Social, 'userId'>>
-    points?: Omit<Point, 'userId'>
+    credit?: Omit<Credit, 'userId'>
+    anonymousIdentities?: Array<Omit<AnonymousIdentity, 'userId'>>
 }
 
 export interface Contributor {

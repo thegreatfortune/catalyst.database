@@ -7,10 +7,11 @@ import { MongooseModule } from '@nestjs/mongoose'
 import { ConfigModule } from './config/config.module'
 import { ConfigService } from './config/config.service'
 import { LogModule } from './log/log.module'
-import { PointModule } from './point/point.module'
+import { CreditModule } from './credit/credit.module'
 import { SocialAuthModule } from './social-auth/social-auth.module'
 import { SocialModule } from './social/social.module'
 import { DatabaseModule } from './database/database.module'
+import { AnonymousIdentityModule } from './anonymous-identity/anonymous-identity.module';
 
 @Module({
   imports: [
@@ -25,7 +26,8 @@ import { DatabaseModule } from './database/database.module'
     DatabaseModule,
     SocialModule,
     SocialAuthModule,
-    PointModule,
+    CreditModule,
+    AnonymousIdentityModule,
     UserModule,
     ContentModule,
     LogModule,

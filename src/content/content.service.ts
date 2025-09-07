@@ -6,8 +6,8 @@ import { Content, ContentAttribute, ContentDocument, ContentStatus, ContentType,
 import { CreateContentDto } from '../content/dto/create-content.dto'
 import { PublishContentDto, UpdateRawDto } from './dto/update-content.dto'
 import { Logger } from '@nestjs/common'
-import { PointService } from '../point/point.service'
-import { TransactionType } from 'src/schemas/point.schema'
+import { CreditService } from '../credit/credit.service'
+import { RelatedEntityType, TransactionType } from 'src/schemas/credit.schema'
 import { GetContentsDto, SortType } from './dto/get-contents.dto'
 import { GetContentsResponseDto } from './dto/get-contents-response.dto'
 import { SocialService } from '../social/social.service'
@@ -22,7 +22,7 @@ export class ContentService {
     @InjectModel(Content.name) private contentModel: Model<Content>,
     private readonly socialService: SocialService,
     private readonly socialAuthService: SocialAuthService,
-    private readonly pointService: PointService,
+    private readonly creditService: CreditService,
   ) { }
 
   async findAll(): Promise<Content[]> {
@@ -97,7 +97,7 @@ export class ContentService {
   }
 
   /**
-   * 创建内容,平台新推文
+   * 创建内容,平台新推文,draft状态
    * @param createContentDto 
    * @returns 
    */
@@ -135,26 +135,27 @@ export class ContentService {
   async publish(pcDto: PublishContentDto): Promise<Content> {
     const session = await this.connection.startSession()
     session.startTransaction()
+    const { contentId, contributorId, rawId, isReply, expiryTime } = pcDto
 
     try {
 
       const query: Record<string, any> = {
-        _id: new Types.ObjectId(pcDto.contentId),
+        _id: new Types.ObjectId(contentId),
         userId: { $ne: null },
       }
 
-      if (pcDto.contributorId) {
+      if (contributorId) {
         query.contributorId = { $exists: false }
       }
 
       const operation: Record<string, any> = {
         status: ContentStatus.PUBLISHED,
-        rawId: pcDto.rawId,
+        rawId: rawId,
         publishedTime: new Date()
       }
 
-      if (pcDto.contributorId) {
-        operation.contributorId = pcDto.contributorId
+      if (contributorId) {
+        operation.contributorId = contributorId
       }
 
       const updatedContent = await this.contentModel
@@ -167,18 +168,63 @@ export class ContentService {
         throw new NotFoundException(`Content with ID ${pcDto.contentId} not found`)
       }
 
-      // 如果有contributorId，即匿名模式的content，更新点数，记录点数变化日志
-      if (pcDto.contributorId) {
-        await this.pointService.upsertPoint({
-          userId: pcDto.contributorId,
-          transactionType: updatedContent.contentType === ContentType.REPLY ? TransactionType.REPLY : TransactionType.POST,
-          reason: 'Publish content',
-        }, session)
+      // 如果 Content 的 userId 不为空，则需要处理积分扣减或者更新 free post
+      if (updatedContent.userId) {
+        // 如果是发布新推，且不存在expiryTime
+        if (!isReply && !expiryTime) {
+          await this.creditService.update({
+            userId: updatedContent.userId,
+            transactionType: TransactionType.POST,
+            reason: 'Publish content',
+            relatedEntities: [
+              {
+                type: RelatedEntityType.CONTENT,
+                relatedId: updatedContent._id.toString()
+              }
+            ]
+          }, session)
+        }
+        // 如果是回复推文
+        if (isReply) {
+          if (expiryTime instanceof Date) {
+            await this.creditService.updateFreePosts({
+              userId: updatedContent.userId,
+              expiryTime,
+            }, session)
+          } else {
+            await this.creditService.update({
+              userId: updatedContent.userId,
+              transactionType: TransactionType.REPLY,
+              reason: 'Reply content',
+              relatedEntities: [
+                {
+                  type: RelatedEntityType.CONTENT,
+                  relatedId: updatedContent._id.toString()
+                }
+              ]
+            }, session)
+          }
+        }
 
-        await this.socialAuthService.updateSocialAuth({
-          userId: pcDto.contributorId,
-          provider: updatedContent.provider
-        }, session)
+        // 如果 Content contributorId 也不为空，即匿名模式的content，更新点数，记录点数变化日志
+        if (contributorId) {
+          await this.creditService.update({
+            userId: contributorId,
+            transactionType: isReply ? TransactionType.CONTRIBUTE_REPLY : TransactionType.CONTRIBUTE_POST,
+            reason: isReply ? 'Contribute reply' : 'Contribute post',
+            relatedEntities: [
+              {
+                type: RelatedEntityType.CONTENT,
+                relatedId: updatedContent._id.toString()
+              }
+            ]
+          }, session)
+
+          await this.socialAuthService.updateSocialAuth({
+            userId: contributorId,
+            provider: updatedContent.provider
+          }, session)
+        }
       }
 
       await session.commitTransaction()
@@ -194,6 +240,11 @@ export class ContentService {
   }
 
 
+  /**
+   * 更新raw内容
+   * @param urDto UpdateRawDto
+   * @returns Content
+   */
   async updateRaw(urDto: UpdateRawDto): Promise<Content> {
     const session = await this.connection.startSession()
     session.startTransaction()
@@ -251,10 +302,16 @@ export class ContentService {
       await this.socialService.updateSocials({ provider, socialUsers }, session)
 
       // 更新点数，记录点数变化日志
-      await this.pointService.upsertPoint({
+      await this.creditService.update({
         userId: contributorId,
-        transactionType: TransactionType.GET,
+        transactionType: TransactionType.CONTRIBUTE_GET,
         reason: 'Get and update raw content',
+        relatedEntities: [
+          {
+            type: RelatedEntityType.CONTENT,
+            relatedId: updatedContent._id.toString()
+          }
+        ]
       }, session)
 
       await this.socialAuthService.updateSocialAuth({

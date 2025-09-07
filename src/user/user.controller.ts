@@ -19,12 +19,17 @@ import { CreateRefreshTokenDto, FindRefreshTokenDto, RemoveRefreshTokenDto } fro
 import { GetContributorDto } from './dto/get-contributor.dto'
 import { FindByWalletAddressDto } from './dto/find-by-walletaddress.dto'
 import { Contributor, UserInfo } from './dto/reponse.dto'
+import { UpdateFreePostDto } from './dto/update-freepost.dto'
+import { CreditService } from '../credit/credit.service'
+import { GetFreePostsDto } from './dto/get-freeposts.dto'
+import { LoginUserDto } from './dto/login-user.dto'
 
 @Controller('user')
 export class UserController {
   constructor(
     private readonly userService: UserService,
     private readonly refreshTokenService: RefreshTokenService,
+    private readonly creditService: CreditService,
   ) { }
 
   @Post()
@@ -37,6 +42,51 @@ export class UserController {
         throw error
       }
       throw new InternalServerErrorException('创建用户失败')
+    }
+  }
+
+  @Post('login')
+  async login(@Body() luDto: LoginUserDto): Promise<UserInfo> {
+    try {
+      return this.userService.login(luDto)
+    } catch (error) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
+        throw error
+      }
+      throw new InternalServerErrorException('更新用户失败')
+    }
+  }
+
+
+  @Post('freePost')
+  async updateFreePosts(@Body() ufoDto: UpdateFreePostDto) {
+    try {
+      return this.creditService.updateFreePosts(ufoDto)
+    } catch (error) {
+      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+        throw error
+      }
+      throw new InternalServerErrorException(
+        `更新用户积分失败: ${error.message}`,
+      )
+    }
+  }
+
+  @Get('freePosts')
+  async getFreePosts(@Query() query: GetFreePostsDto) {
+    try {
+      const { userId } = query
+      return this.creditService.findFreePostsByUserId(userId)
+    } catch (error) {
+      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+        throw error
+      }
+      throw new InternalServerErrorException(
+        `Find free posts failed: ${error.message}`,
+      )
     }
   }
 

@@ -1,5 +1,5 @@
 // src/database/dto/update-content.dto.ts
-import { IsBoolean, IsEnum, IsMongoId, IsNotEmpty, IsNumber, IsOptional, IsString, Min, ValidateNested } from 'class-validator'
+import { IsBoolean, IsDate, IsEnum, IsMongoId, IsNotEmpty, IsNumber, IsOptional, IsString, Min, ValidateNested } from 'class-validator'
 import { Type } from 'class-transformer'
 import { PublicMetricsDto } from './create-content.dto'
 import type { ApiV2Includes, TweetV2, TweetV2SingleResult } from 'twitter-api-v2'
@@ -27,6 +27,15 @@ export class PublishContentDto {
   @IsString()
   @IsNotEmpty()
   rawId: string
+
+  @IsBoolean()
+  @IsNotEmpty()
+  isReply: boolean
+
+  @IsDate()
+  @IsOptional()
+  @Type(() => Date)
+  expiryTime?: Date
 }
 
 export class UpdateRawDto {

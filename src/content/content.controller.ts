@@ -3,6 +3,7 @@ import { ContentService } from './content.service'
 import { CreateContentDto } from './dto/create-content.dto'
 import { PublishContentDto, UpdateRawDto } from './dto/update-content.dto'
 import { GetContentsDto } from './dto/get-contents.dto'
+import { InsufficientCreditsException } from '../credit/exceptions/insufficient-credits.exception'
 
 @Controller('content')
 export class ContentController {
@@ -35,7 +36,8 @@ export class ContentController {
             return this.contentService.publish(publishContentDto)
         } catch (error) {
             if (error instanceof BadRequestException ||
-                error instanceof NotFoundException) {
+                error instanceof NotFoundException ||
+                error instanceof InsufficientCreditsException) {
                 throw error
             }
             throw new InternalServerErrorException('Failed to publish content!')
@@ -53,7 +55,8 @@ export class ContentController {
             return this.contentService.updateRaw(urDto)
         } catch (error) {
             if (error instanceof BadRequestException ||
-                error instanceof NotFoundException) {
+                error instanceof NotFoundException ||
+                error instanceof InsufficientCreditsException) {
                 throw error
             }
             throw new InternalServerErrorException('Failed to update raw!')

@@ -1,10 +1,10 @@
 import { IsEnum, IsMongoId, IsNotEmpty, IsNumber, IsOptional, IsString } from "class-validator"
-import { RelatedEntityType, TransactionType } from "../../schemas/point.schema"
+import { RelatedEntityType, TransactionType } from "../../schemas/credit.schema"
 import { Type } from "class-transformer"
 
-export class UpdatePointDto {
+
+export class UpdateCreditDto {
     @IsNotEmpty()
-    @IsString()
     @IsMongoId()
     userId: string
 
