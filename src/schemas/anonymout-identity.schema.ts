@@ -13,7 +13,8 @@ export type AnonymousIdentityDocument = mongoose.HydratedDocument<AnonymousIdent
             delete ret._id
             delete ret.__v
             delete ret.userId
-            delete ret.createdAt
+            delete ret.updatedAt
+            ret.createdAt = ret.createdAt.toISOString()
             return ret
         },
     },
@@ -42,7 +43,6 @@ export class AnonymousIdentity {
 
     @Prop({
         type: Array<string>,
-        required: true,
     })
     preferences?: string[]
 

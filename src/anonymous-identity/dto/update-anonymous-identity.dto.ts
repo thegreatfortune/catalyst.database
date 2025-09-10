@@ -4,8 +4,8 @@ import { IsBoolean, IsMongoId, IsNotEmpty, IsOptional, IsString, ValidateNested 
 
 export class AnonymousIdentityDto {
     @IsMongoId()
-    @IsOptional()
-    id?: string
+    @IsNotEmpty()
+    id: string
 
     @IsString()
     @IsOptional()

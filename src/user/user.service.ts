@@ -98,7 +98,7 @@ export class UserService {
       this.logger.error('创建用户失败', error)
       throw error
     } finally {
-      session.endSession()
+      await session.endSession()
     }
   }
 
@@ -138,7 +138,7 @@ export class UserService {
         },
         {
           $lookup: {
-            from: 'anonymousIdentities',
+            from: 'anonymous_identities',
             let: { userId: '$_id' },
             pipeline: [
               {
@@ -228,7 +228,7 @@ export class UserService {
         },
         {
           $lookup: {
-            from: 'anonymousIdentities',
+            from: 'anonymous_identities',
             let: { userId: '$_id' },
             pipeline: [
               {
@@ -315,7 +315,7 @@ export class UserService {
         },
         {
           $lookup: {
-            from: 'anonymousIdentities',
+            from: 'anonymous_identities',
             let: { userId: '$_id' },
             pipeline: [
               {
@@ -579,7 +579,7 @@ export class UserService {
         },
         {
           $lookup: {
-            from: 'anonymousIdentities',
+            from: 'anonymous_identities',
             let: { userId: '$_id' },
             pipeline: [
               {

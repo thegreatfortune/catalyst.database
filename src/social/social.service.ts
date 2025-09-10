@@ -94,7 +94,7 @@ export class SocialService {
             throw error
         } finally {
             // 结束会话
-            session.endSession()
+            await session.endSession()
         }
     }
 
@@ -124,11 +124,11 @@ export class SocialService {
             await session.commitTransaction()
             return updatedSocialAccount.toJSON()
         } catch (error) {
-            session.abortTransaction()
+            await session.abortTransaction()
             this.logger.error(`Failed to remove social account for user ${rsDto.userId} and provider ${rsDto.provider}`, error)
             throw error
         } finally {
-            session.endSession()
+            await session.endSession()
         }
     }
 

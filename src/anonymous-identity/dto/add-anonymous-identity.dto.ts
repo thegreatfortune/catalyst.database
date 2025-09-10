@@ -28,3 +28,4 @@ export class AddAnonymousIdentityDto {
     @Type(() => AnonymousIdentityDto)
     anonymousIdentity: AnonymousIdentityDto
 }
+

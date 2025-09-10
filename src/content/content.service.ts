@@ -235,7 +235,7 @@ export class ContentService {
       this.logger.error(`Failed to update publish status: ${error.message}`)
       throw error
     } finally {
-      session.endSession()
+      await session.endSession()
     }
   }
 
@@ -328,7 +328,7 @@ export class ContentService {
       this.logger.error(`Failed to update raw: ${error.message}`)
       throw error
     } finally {
-      session.endSession()
+      await session.endSession()
     }
   }
 

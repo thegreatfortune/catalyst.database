@@ -1,6 +1,9 @@
-import { BadRequestException, Body, Controller, Get, InternalServerErrorException, NotFoundException, Param, Post } from '@nestjs/common'
+import { BadRequestException, Body, Controller, Get, InternalServerErrorException, NotFoundException, Param, Patch, Post } from '@nestjs/common'
 import { AnonymousIdentityService } from './anonymous-identity.service'
 import { UpdateAnonymousIdentityDto } from './dto/update-anonymous-identity.dto'
+import { AddAnonymousIdentityDto } from './dto/add-anonymous-identity.dto'
+import { AnonymousIdentity } from '../schemas/anonymout-identity.schema'
+
 
 @Controller('user/anonymous-identity')
 export class AnonymousIdentityController {
@@ -9,6 +12,18 @@ export class AnonymousIdentityController {
     ) { }
 
     @Post()
+    async addAnonymousIdentities(@Body() aaiDto: AddAnonymousIdentityDto): Promise<AnonymousIdentity> {
+        try {
+            return this.anonymousIdentityService.add(aaiDto)
+        } catch (error) {
+            if (error instanceof NotFoundException || error instanceof BadRequestException) {
+                throw error
+            }
+            throw new InternalServerErrorException(`Failed to add anonymous identities for user ${aaiDto.userId}!`)
+        }
+    }
+
+    @Patch()
     async updateAnonymousIdentities(@Body() uaiDto: UpdateAnonymousIdentityDto) {
         try {
             return this.anonymousIdentityService.update(uaiDto)

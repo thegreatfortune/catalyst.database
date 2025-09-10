@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common'
 import { InjectConnection, InjectModel } from '@nestjs/mongoose'
-import mongoose, { Connection, Model, Types } from 'mongoose'
+import mongoose, { ClientSession, Connection, Model, Types } from 'mongoose'
 import { AnonymousIdentity, AnonymousIdentityDocument } from '../schemas/anonymout-identity.schema'
 import { UpdateAnonymousIdentityDto } from './dto/update-anonymous-identity.dto'
 import { CreditService } from 'src/credit/credit.service'
@@ -28,58 +28,70 @@ export class AnonymousIdentityService {
         }
     }
 
-    async count(userId: string): Promise<number> {
+    async count(userId: string, session?: ClientSession): Promise<number> {
         try {
             return this.anonymousIdentityModel.countDocuments({
                 userId: new Types.ObjectId(userId),
                 isDeleted: false
-            }).exec()
+            }, { session }).exec()
         } catch (error) {
             this.logger.error(`获取用户 ${userId} 的匿名身份失败`, error)
             throw error
         }
     }
 
-    async add(aaiDto: AddAnonymousIdentityDto) {
+    async add(aaiDto: AddAnonymousIdentityDto): Promise<AnonymousIdentity> {
         const { userId, anonymousIdentity } = aaiDto
         const session = await this.connection.startSession()
         session.startTransaction()
         try {
-            const credit = await this.creditService.findByUserId(userId, session)
 
-            if (credit.balance < TransactionTypeCreditChange.BUY_ANON_ID) {
-                throw new Error('积分不足')
+            const count = await this.count(userId)
+            console.log('count', count)
+            if (count > 0) {
+                const credit = await this.creditService.findByUserId(userId, session)
+
+                if (credit.balance < TransactionTypeCreditChange.BUY_ANON_ID) {
+                    throw new Error('积分不足')
+                }
+
+                await this.creditService.update({
+                    userId,
+                    transactionType: TransactionType.BUY_ANON_ID,
+                    reason: 'Buy anonymous identity'
+                }, session)
             }
 
             const newIdentity = new this.anonymousIdentityModel({
                 ...anonymousIdentity,
-                userId: new Types.ObjectId(userId)
+                userId: new Types.ObjectId(userId),
+                isActive: false,
+                isDeleted: false
             })
 
-            await this.creditService.update({
-                userId,
-                transactionType: TransactionType.BUY_ANON_ID,
-                reason: 'Buy anonymous identity'
-            }, session)
+            await newIdentity.save({ session })
+            await session.commitTransaction()
 
-            session.commitTransaction()
-            return (await newIdentity.save({ session })).toJSON()
+            return newIdentity.toJSON()
         } catch (error) {
-            session.abortTransaction()
+            await session.abortTransaction()
             this.logger.error(`添加用户 ${userId} 的匿名身份失败`, error)
             throw error
         } finally {
-            session.endSession()
+            await session.endSession()
         }
     }
 
     async update(uaiDto: UpdateAnonymousIdentityDto) {
+        const session = await this.connection.startSession()
+        session.startTransaction()
         try {
             // 1. 检查已有的匿名身份
             const currentIdentities = await this.anonymousIdentityModel.find({
                 userId: new Types.ObjectId(uaiDto.userId),
                 isDeleted: false
-            }).exec()
+            }, null, { session }).exec()
+
 
             // 2. 检查提交的匿名身份中是否有多个活跃状态
             const activeSubmittedIdentities = uaiDto.anonymousIdentities.filter(identity => identity.isActive)
@@ -137,26 +149,32 @@ export class AnonymousIdentityService {
                 }
             }
 
+
             // 6. 执行批量更新
             if (toUpdate.length > 0) {
-                await this.anonymousIdentityModel.bulkWrite(toUpdate)
+                await this.anonymousIdentityModel.bulkWrite(toUpdate, { session })
             }
 
             // 7. 执行批量新增
             if (toInsert.length > 0) {
-                await this.anonymousIdentityModel.insertMany(toInsert)
+                await this.anonymousIdentityModel.insertMany(toInsert, { session })
             }
 
             // 8. 获取更新后的记录
             const updatedIdentities = await this.anonymousIdentityModel.find({
                 userId: new Types.ObjectId(uaiDto.userId),
                 isDeleted: false  // 只返回未删除的身份
-            }).sort({ createdAt: -1 }).exec()  // 按创建时间降序排序
+            }, null, { session }).sort({ createdAt: -1 }).exec()  // 按创建时间降序排序
+
+            await session.commitTransaction()
 
             return updatedIdentities.map(identity => identity.toJSON())
         } catch (error) {
+            await session.abortTransaction()
             this.logger.error(`更新用户 ${uaiDto.userId} 的匿名身份失败`, error)
             throw error
+        } finally {
+            await session.endSession()
         }
     }
 }
