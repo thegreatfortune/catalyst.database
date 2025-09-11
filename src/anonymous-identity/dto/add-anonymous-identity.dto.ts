@@ -8,14 +8,10 @@ export class AnonymousIdentityDto {
     @IsNotEmpty()
     name: string
 
-    @IsString()
     @IsNotEmpty()
-    avatar: string
-
-    @IsOptional()
     @ArrayMaxSize(5, { message: '性格标签最多只能有5个' })
     @IsString({ each: true, message: '性格标签必须是字符串' })
-    preferences?: string[]
+    preferences: string[]
 }
 
 export class AddAnonymousIdentityDto {
