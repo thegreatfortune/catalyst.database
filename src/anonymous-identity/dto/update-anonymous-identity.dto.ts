@@ -11,18 +11,9 @@ export class AnonymousIdentityDto {
     @IsOptional()
     name?: string
 
-    @IsString()
-    @IsOptional()
-    avatar?: string
-
     @IsOptional()
     @ValidateNested()
     preferences?: string[]
-
-    @IsOptional()
-    @IsBoolean()
-    @Type(() => Boolean)
-    isActive?: boolean
 
     @IsOptional()
     @IsBoolean()

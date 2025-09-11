@@ -86,85 +86,50 @@ export class AnonymousIdentityService {
         const session = await this.connection.startSession()
         session.startTransaction()
         try {
-            // 1. 检查已有的匿名身份
-            const currentIdentities = await this.anonymousIdentityModel.find({
-                userId: new Types.ObjectId(uaiDto.userId),
-                isDeleted: false
-            }, null, { session }).exec()
+            // 准备批量操作数组
+            const bulkOps: mongoose.AnyBulkWriteOperation<AnonymousIdentity>[] = []
 
-
-            // 2. 检查提交的匿名身份中是否有多个活跃状态
-            const activeSubmittedIdentities = uaiDto.anonymousIdentities.filter(identity => identity.isActive)
-            if (activeSubmittedIdentities.length > 1) {
-                throw new BadRequestException('只能有一个匿名身份处于活跃状态')
-            }
-
-            // 3. 准备更新和新增的数组
-            const toUpdate: mongoose.AnyBulkWriteOperation<AnonymousIdentity>[] = []
-            const toInsert: Partial<AnonymousIdentity>[] = []
-
-            // 4. 如果提交了新的活跃身份，需要将当前活跃身份设为非活跃
-            if (activeSubmittedIdentities.length > 0) {
-                const currentActiveIdentity = currentIdentities.find(identity => identity.isActive)
-                if (currentActiveIdentity) {
-                    // 检查当前活跃身份是否在提交列表中
-                    const submittedCurrentActive = uaiDto.anonymousIdentities.find(
-                        identity => identity.id === currentActiveIdentity.id
-                    )
-
-                    // 如果当前活跃身份不在提交列表中，或者在提交列表中但不再活跃，则更新为非活跃
-                    if (!submittedCurrentActive || !submittedCurrentActive.isActive) {
-                        toUpdate.push({
-                            updateOne: {
-                                filter: { _id: currentActiveIdentity._id },
-                                update: { $set: { isActive: false } }
-                            }
-                        })
-                    }
-                }
-            }
-
-            // 5. 处理提交的身份列表
-            const currentIdentityIds = new Set(currentIdentities.map(identity => identity.id))
-
+            // 处理提交的身份列表
             for (const submittedIdentity of uaiDto.anonymousIdentities) {
-                if (submittedIdentity.id && currentIdentityIds.has(submittedIdentity.id)) {
-                    // 已存在的身份，需要更新
-                    const { id, ...updateData } = submittedIdentity
-                    toUpdate.push({
+                const { id, ...updateData } = submittedIdentity
+
+                if (id) {
+                    // 已有ID的情况，使用updateOne
+                    bulkOps.push({
                         updateOne: {
                             filter: { _id: new Types.ObjectId(id) },
-                            update: {
-                                $set: { ...updateData }
-                            }
+                            update: { $set: { ...updateData } }
                         }
                     })
                 } else {
-                    const { id, ...insertData } = submittedIdentity
-                    // 新增的身份
-                    toInsert.push({
-                        ...insertData,
-                        userId: uaiDto.userId
+                    // 没有ID的情况，使用upsert
+                    bulkOps.push({
+                        updateOne: {
+                            filter: { _id: new Types.ObjectId() },
+                            update: {
+                                $set: {
+                                    ...updateData,
+                                    userId: new Types.ObjectId(uaiDto.userId),
+                                    isDeleted: updateData.isDeleted ?? false,
+                                    preferences: updateData.preferences ?? []
+                                }
+                            },
+                            upsert: true
+                        }
                     })
                 }
+            } 
+
+            // 执行批量操作
+            if (bulkOps.length > 0) {
+                await this.anonymousIdentityModel.bulkWrite(bulkOps, { session })
             }
 
-
-            // 6. 执行批量更新
-            if (toUpdate.length > 0) {
-                await this.anonymousIdentityModel.bulkWrite(toUpdate, { session })
-            }
-
-            // 7. 执行批量新增
-            if (toInsert.length > 0) {
-                await this.anonymousIdentityModel.insertMany(toInsert, { session })
-            }
-
-            // 8. 获取更新后的记录
+            // 获取更新后的记录
             const updatedIdentities = await this.anonymousIdentityModel.find({
                 userId: new Types.ObjectId(uaiDto.userId),
-                isDeleted: false  // 只返回未删除的身份
-            }, null, { session }).sort({ createdAt: -1 }).exec()  // 按创建时间降序排序
+                isDeleted: false
+            }, null, { session }).sort({ createdAt: -1 }).exec()
 
             await session.commitTransaction()
 

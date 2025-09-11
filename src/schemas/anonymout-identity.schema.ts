@@ -36,21 +36,11 @@ export class AnonymousIdentity {
     name: string
 
     @Prop({
-        type: String,
-        required: true,
-    })
-    avatar: string
-
-    @Prop({
         type: Array<string>,
+        required: true,
+        default: []
     })
     preferences?: string[]
-
-    @Prop({
-        type: Boolean,
-        required: true,
-    })
-    isActive: boolean
 
     @Prop({
         type: Boolean,
