@@ -1,5 +1,5 @@
 import { Type } from "class-transformer"
-import { IsBoolean, IsMongoId, IsNotEmpty, IsOptional, IsString, ValidateNested } from "class-validator"
+import { ArrayMaxSize, IsBoolean, IsMongoId, IsNotEmpty, IsOptional, IsString, ValidateNested } from "class-validator"
 
 
 export class AnonymousIdentityDto {
@@ -12,7 +12,8 @@ export class AnonymousIdentityDto {
     name?: string
 
     @IsOptional()
-    @ValidateNested()
+    @ArrayMaxSize(5, { message: '性格标签最多只能有5个' })
+    @IsString({ each: true, message: '性格标签必须是字符串' })
     preferences?: string[]
 
     @IsOptional()
