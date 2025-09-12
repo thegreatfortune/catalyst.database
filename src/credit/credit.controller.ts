@@ -5,7 +5,7 @@ import { CreditTransaction } from '../schemas/credit.schema'
 import { GetCreditTransactionsResponseDto } from './dto/get-credit-transactions-response.dto'
 import { GetCreditDto } from './dto/get-credit.dto'
 
-@Controller('user/credit')
+@Controller('credit')
 export class CreditController {
 
     constructor(
@@ -26,21 +26,15 @@ export class CreditController {
         }
     }
 
-    @Get('transactions')
-    async getTransactions(@Query() gctDto: GetCreditTransactionsDto): Promise<GetCreditTransactionsResponseDto> {
+    @Get('/:userId/transactions')
+    async getCreditTransactionsById(@Param('userId') userId: string, @Query() gctDto: GetCreditTransactionsDto) {
         try {
-            return this.creditService.findCreditTransactions(gctDto)
+            return this.creditService.findCreditTransactions(gctDto, userId)
         } catch (error) {
             if (error instanceof NotFoundException) {
                 throw error
             }
             throw new InternalServerErrorException(`Failed to get credit transactions by user id: ${error.message}`)
         }
-
-    }
-
-    @Get('transaction/:id')
-    async getCreditTransactionsById(@Param('id') id: string): Promise<CreditTransaction> {
-        return this.creditService.findCreditTransactionById(id)
     }
 }

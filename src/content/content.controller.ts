@@ -1,8 +1,8 @@
-import { BadRequestException, Body, Controller, Get, InternalServerErrorException, NotFoundException, Patch, Post, Query } from '@nestjs/common'
+import { BadRequestException, Body, Controller, Get, InternalServerErrorException, NotFoundException, Param, Patch, Post, Query } from '@nestjs/common'
 import { ContentService } from './content.service'
 import { CreateContentDto } from './dto/create-content.dto'
 import { PublishContentDto, UpdateRawDto } from './dto/update-content.dto'
-import { GetContentsDto } from './dto/get-contents.dto'
+import { GetContentsDto, GetMyContentsDto } from './dto/get-contents.dto'
 import { InsufficientCreditsException } from '../credit/exceptions/insufficient-credits.exception'
 
 @Controller('content')
@@ -71,9 +71,19 @@ export class ContentController {
     @Get()
     async getContents(@Query() gcDto: GetContentsDto) {
         try {
+
             return this.contentService.getContents(gcDto)
         } catch (error) {
             throw new InternalServerErrorException('Failed to get contents!')
+        }
+    }
+
+    @Get(':userId')
+    async getMyContents(@Query() gcDto: GetContentsDto, @Param('userId') userId: string) {
+        try {
+            return this.contentService.getMyContents({ ...gcDto, userId })
+        } catch (error) {
+            throw new InternalServerErrorException('Failed to get my contents!')
         }
     }
 }

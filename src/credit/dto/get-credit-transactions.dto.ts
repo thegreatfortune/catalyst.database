@@ -1,6 +1,7 @@
 import { IsEnum, IsInt, IsMongoId, IsNotEmpty, IsOptional, IsString, Min } from 'class-validator'
 import { Type } from 'class-transformer'
 import { TransactionType } from '../../schemas/credit.schema'
+import { SortType } from 'src/content/dto/get-contents.dto'
 
 export enum SortOrder {
     ASC = 'asc',
@@ -8,32 +9,28 @@ export enum SortOrder {
 }
 
 export class GetCreditTransactionsDto {
-    @IsNotEmpty()
-    @IsString()
-    @IsMongoId()
-    userId: string
-
     @IsOptional()
     @IsString()
     @IsEnum(TransactionType)
     transactionType?: TransactionType
 
-    @IsOptional()
+    @IsNotEmpty()
     @IsInt()
     @Min(1)
     @Type(() => Number)
-    page?: number = 1
+    page: number
 
-    @IsOptional()
+    @IsNotEmpty()
     @IsInt()
     @Min(1)
     @Type(() => Number)
-    limit?: number = 10
+    limit: number
 
-    @IsOptional()
+    @IsNotEmpty()
     @IsEnum(SortOrder)
-    sortOrder?: SortOrder = SortOrder.DESC
+    sortOrder: SortOrder
 
-    @IsOptional()
-    sortBy?: string = 'createdAt'
+    @IsNotEmpty()
+    @IsEnum(SortType)
+    sortType: SortType
 }

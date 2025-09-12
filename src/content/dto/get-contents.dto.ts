@@ -1,5 +1,5 @@
 import { Type } from "class-transformer"
-import { IsEnum, IsNotEmpty, IsNumber, IsString } from "class-validator"
+import { IsEnum, IsMongoId, IsNotEmpty, IsNumber, IsOptional, IsString } from "class-validator"
 import { SocialProvider } from "../../schemas/user.schema"
 
 export enum SortType {
@@ -19,18 +19,27 @@ export class GetContentsDto {
     @IsEnum(SocialProvider)
     provider: SocialProvider
 
+    @IsNotEmpty()
     @IsNumber()
     @Type(() => Number)
     limit: number
 
+    @IsNotEmpty()
     @IsNumber()
     @Type(() => Number)
     page: number
 
-    @IsString()
+    @IsNotEmpty()
     @IsEnum(['asc', 'desc'])
     sort: 'asc' | 'desc'
 
+    @IsNotEmpty()
     @IsEnum(SortType)
     sortType: SortType
+}
+
+export class GetMyContentsDto extends GetContentsDto {
+    @IsNotEmpty()
+    @IsMongoId()
+    userId: string
 }

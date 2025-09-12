@@ -172,14 +172,14 @@ export class CreditService {
         }
     }
 
-    async findCreditTransactions(gctDto: GetCreditTransactionsDto): Promise<GetCreditTransactionsResponseDto> {
+    async findCreditTransactions(gctDto: GetCreditTransactionsDto, userId: string): Promise<GetCreditTransactionsResponseDto> {
         try {
-            const { userId, transactionType, page = 1, limit = 10, sortOrder = SortOrder.DESC, sortBy = 'createdAt' } = gctDto
+            const { transactionType, page = 1, limit = 10, sortOrder = SortOrder.DESC, sortType } = gctDto
             const skip = (page - 1) * limit
 
             // 构建排序条件
             const sort: Record<string, 1 | -1> = {}
-            sort[sortBy] = sortOrder === SortOrder.ASC ? 1 : -1
+            sort[sortType] = sortOrder === SortOrder.ASC ? 1 : -1
 
 
             // 构建动态查询条件

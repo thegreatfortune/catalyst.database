@@ -1,10 +1,11 @@
-import { Content } from "../../schemas/content.schema"
+import { SocialProvider } from "src/schemas/user.schema"
+import { Content, ContentStatus, ContentType, Metrics, PublicMetrics } from "../../schemas/content.schema"
 
-export class GetContentsResponseDto {
+export interface GetContentsResponseDto {
     /**
      * 当前页的数据
      */
-    items: Content[]
+    items: Content[] | MyContentItem[]
 
     /**
      * 总记录数
@@ -35,4 +36,23 @@ export class GetContentsResponseDto {
      * 是否有上一页
      */
     hasPreviousPage: boolean
+}
+
+
+export interface MyContentItem {
+    id: string
+    provider: SocialProvider
+    originalContent: string
+    aiGeneratedContent?: string
+    contentType: ContentType
+    metrics: Metrics
+    publicMetrics: PublicMetrics
+    rawId?: string
+    createdAt: string
+    updatedAt: string
+    lastEditedTime: string
+    publishedTime?: string
+    status: ContentStatus
+    contributorUsername?: string
+    creditChange: number
 }

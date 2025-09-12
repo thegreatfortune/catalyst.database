@@ -8,11 +8,13 @@ import { PublishContentDto, UpdateRawDto } from './dto/update-content.dto'
 import { Logger } from '@nestjs/common'
 import { CreditService } from '../credit/credit.service'
 import { RelatedEntityType, TransactionType } from 'src/schemas/credit.schema'
-import { GetContentsDto, SortType } from './dto/get-contents.dto'
-import { GetContentsResponseDto } from './dto/get-contents-response.dto'
+import { GetContentsDto, GetMyContentsDto, SortType } from './dto/get-contents.dto'
+import { GetContentsResponseDto, MyContentItem } from './dto/get-contents-response.dto'
 import { SocialService } from '../social/social.service'
 import { SocialAuthService } from '../social-auth/social-auth.service'
 import { XUser } from '../schemas/social.schema'
+import { CreditTransaction } from 'src/schemas/credit.schema'
+import { SocialProvider } from 'src/schemas/user.schema'
 
 @Injectable()
 export class ContentService {
@@ -20,6 +22,8 @@ export class ContentService {
   constructor(
     @InjectConnection() private connection: Connection,
     @InjectModel(Content.name) private contentModel: Model<Content>,
+    @InjectModel('CreditTransaction') private creditTransactionModel: Model<CreditTransaction>,
+    @InjectModel('Social') private socialModel: Model<any>,
     private readonly socialService: SocialService,
     private readonly socialAuthService: SocialAuthService,
     private readonly creditService: CreditService,
@@ -394,13 +398,21 @@ export class ContentService {
         .skip(skip)
         .limit(limit)
         .exec()
+      // console.log('contents', contents[0].toJSON())
+      // console.log('lean', (await this.contentModel
+      //   .find({ provider, status: { $in: [ContentStatus.PUBLISHED, ContentStatus.RAW] } })
+      //   .sort(sortOptions)
+      //   .skip(skip)
+      //   .limit(limit)
+      //   .lean()
+      //   .exec())[0])
 
       // 计算总页数
       const totalPages = Math.ceil(total / limit)
 
       // 构建分页响应
       const response: GetContentsResponseDto = {
-        items: contents.map(content => content.toJSON()),
+        items: contents.map(content => content.toJSON()) as Content[],
         total,
         page,
         limit,
@@ -409,11 +421,119 @@ export class ContentService {
         hasPreviousPage: page > 1
       }
 
-      console.log('response', response)
+      // console.log('response', response)
 
       return response
     } catch (error) {
       this.logger.error(`Failed to get contents: ${error.message}`)
+      throw error
+    }
+  }
+
+  async getMyContents(gcDto: GetMyContentsDto) {
+    try {
+      const { userId, page, limit, sort, sortType } = gcDto
+      const skip = (page - 1) * limit
+      const sortOrder = sort === 'asc' ? 1 : -1
+
+      // 1. 获取用户的内容
+      const contents = await this.contentModel
+        .find({ userId })
+        .sort({ [sortType]: sortOrder, createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .exec()
+
+      // 2. 获取内容总数
+      const total = await this.contentModel.countDocuments({ userId })
+
+      // 3. 获取关联的社交账号信息 (目前只处理X平台)
+      const socialAccounts = await this.socialModel
+        .find({
+          userId,
+          provider: SocialProvider.X
+        })
+        .lean()
+        .exec()
+
+      // 创建社交账号映射表 (contributorId -> username)
+      const socialMap = new Map()
+      socialAccounts.forEach(account => {
+        if (account.details && account.details.username) {
+          socialMap.set((account._id as Types.ObjectId).toString(), account.details.username)
+        }
+      })
+
+      // 4. 获取关联的积分交易记录
+      const contentIds = contents.map(content => content._id)
+      const creditTransactions = await this.creditTransactionModel
+        .find({
+          userId,
+          'relatedEntities.type': RelatedEntityType.CONTENT,
+          'relatedEntities.relatedId': { $in: contentIds }
+        })
+        .lean()
+        .exec()
+
+      // 创建积分交易映射表 (contentId -> creditChange)
+      const creditMap = new Map()
+      creditTransactions.forEach(transaction => {
+        if (transaction.relatedEntities && transaction.relatedEntities.length > 0) {
+          transaction.relatedEntities.forEach(entity => {
+            if (entity.type === RelatedEntityType.CONTENT) {
+              const contentId = entity.relatedId.toString()
+              creditMap.set(contentId, transaction.change)
+            }
+          })
+        }
+      })
+
+      // 5. 组装结果
+      const enrichedContents = contents.map(content => {
+        const contributorId = content.contributorId ? content.contributorId.toString() : null
+
+        // 添加社交账号用户名
+        const contributorUsername = contributorId ? socialMap.get(contributorId) || null : null
+
+        // 添加积分变化
+        const creditChange = creditMap.get(content._id.toString()) || 0
+
+
+        return {
+          id: content.id,
+          provider: content.provider,
+          originalContent: content.originalContent,
+          aiGeneratedContent: content.aiGeneratedContent,
+          contentType: content.contentType,
+          metrics: content.metrics,
+          publicMetrics: content.publicMetrics,
+          rawId: content.rawId,
+          createdAt: content.get('createdAt') ? content.get('createdAt').toISOString() : undefined,
+          updatedAt: content.get('updatedAt') ? content.get('updatedAt').toISOString() : undefined,
+          lastEditedTime: content.lastEditedTime ? content.lastEditedTime.toISOString() : undefined,
+          publishedTime: content.publishedTime ? content.publishedTime.toISOString() : undefined,
+          status: content.status,
+          contributorUsername,
+          creditChange,
+        } as MyContentItem
+      })
+
+      // 6. 构建分页响应
+      const totalPages = Math.ceil(total / limit)
+      const hasNextPage = page < totalPages
+      const hasPreviousPage = page > 1
+
+      return {
+        items: enrichedContents as MyContentItem[],
+        total,
+        page,
+        limit,
+        totalPages,
+        hasNextPage,
+        hasPreviousPage
+      }
+    } catch (error) {
+      this.logger.error(`Failed to get my contents: ${error.message}`)
       throw error
     }
   }

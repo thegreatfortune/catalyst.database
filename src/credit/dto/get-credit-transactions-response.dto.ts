@@ -1,4 +1,4 @@
-import { CreditTransaction } from "../../schemas/credit.schema"
+import { CreditTransaction, RelatedEntity, TransactionFlow, TransactionType } from "../../schemas/credit.schema"
 
 export class GetCreditTransactionsResponseDto {
     /**
@@ -36,3 +36,5 @@ export class GetCreditTransactionsResponseDto {
      */
     hasPreviousPage: boolean
 }
+
+

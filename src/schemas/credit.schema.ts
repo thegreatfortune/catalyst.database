@@ -89,10 +89,10 @@ export class RelatedEntity {
             ret.id = ret._id?.toString() || ''
             delete ret._id
             delete ret.__v
+            delete ret.userId
             ret.createdAt = ret.createdAt?.toISOString()
             ret.updatedAt = ret.updatedAt?.toISOString()
 
-            ret.userId = ret.userId.toString()
             return ret
         },
     },
