@@ -26,6 +26,8 @@ import { CreditService } from '../credit/credit.service'
 import { SocialService } from '../social/social.service'
 import { LoginUserDto } from './dto/login-user.dto'
 import { AnonymousIdentity, AnonymousIdentityDocument } from 'src/schemas/anonymout-identity.schema'
+import { RedisService } from '../redis/redis.service'
+import { GetContributorDto } from './dto/get-contributor.dto'
 
 export interface RandomUsersAggregationResult {
   _id: null
@@ -41,6 +43,8 @@ export interface WeightedUser {
 @Injectable()
 export class UserService {
   private readonly logger = new Logger(UserService.name);
+  private readonly RATE_LIMIT_PREFIX = 'rate_limit:contributor:';
+  private readonly DEFAULT_EXPIRY = 15 * 60; // 15分钟过期时间（秒）
   constructor(
     @InjectModel(User.name) private userModel: Model<User>,
     @InjectModel(Credit.name) private creditModel: Model<Credit>,
@@ -49,6 +53,7 @@ export class UserService {
     @InjectConnection() private connection: Connection,
     private readonly socialService: SocialService,
     private readonly creditService: CreditService,
+    private readonly redisService: RedisService,
   ) { }
 
 
@@ -390,17 +395,42 @@ export class UserService {
     }
   }
 
-  async findContributorIds(excludedUserId: string, provider: SocialProvider, count: number): Promise<string[]> {
+  async findContributorIds(gcDto: GetContributorDto): Promise<string[]> {
+    const { excludedUserId, provider, count, toExcludedContributorIds } = gcDto
     try {
-
       this.logger.log(`开始基于权重随机选择${provider}平台用户，排除用户ID: ${excludedUserId}`)
 
+      // 1. 从 Redis 获取已被速率限制的贡献者ID
+      const excludedContributors = await this.getExcludedContributors()
+
+      // 2. 合并所有需要排除的ID
+      const allExcludedIds = [excludedUserId, ...excludedContributors]
+
+      // 添加传入的排除列表
+      if (toExcludedContributorIds && toExcludedContributorIds.length > 0) {
+        // 将传入的排除列表添加到 Redis 中，设置过期时间
+        await this.addExcludedContributors(toExcludedContributorIds)
+        allExcludedIds.push(...toExcludedContributorIds)
+      }
+
+      // 去重
+      const uniqueExcludedIds = [...new Set(allExcludedIds)]
+
+      this.logger.log(`合并后的排除ID列表: ${uniqueExcludedIds.join(', ')}`)
+
       // 确保将字符串ID转换为ObjectId进行比较
-      const userObjectId = new Types.ObjectId(excludedUserId)
+      const excludedObjectIds = uniqueExcludedIds.map(id => {
+        try {
+          return new Types.ObjectId(id)
+        } catch (e) {
+          this.logger.warn(`Invalid ObjectId: ${id}`)
+          return null
+        }
+      }).filter(id => id !== null)
 
       // 使用聚合管道查询符合条件的用户
       // 1. 查找已有授权信息的用户
-      // 2. 排除指定的用户ID
+      // 2. 排除指定的用户ID列表
       // 3. 基于最后更新时间计算权重
       const pipeline: PipelineStage[] = [
         {
@@ -443,7 +473,7 @@ export class UserService {
         },
         {
           $match: {
-            _id: { $ne: userObjectId },
+            _id: { $nin: excludedObjectIds }, // 使用 $nin 排除所有指定的ID
             'authInfo.0': { $exists: true }
           }
         },
@@ -644,6 +674,42 @@ export class UserService {
     } catch (error) {
       this.logger.error('更新用户失败', error)
       throw error
+    }
+  }
+
+  /**
+   * 将贡献者ID添加到速率限制黑名单
+   * @param contributorIds 贡献者ID数组
+   * @param ttl 过期时间（秒），默认15分钟
+   */
+  private async addExcludedContributors(contributorIds: string[], ttl: number = this.DEFAULT_EXPIRY): Promise<void> {
+    // 构建键值对数组
+    const items = contributorIds.map(contributorId => ({
+      key: `${this.RATE_LIMIT_PREFIX}${contributorId}`,
+      value: Date.now(),
+      ttl
+    }))
+
+    // 使用 mset 批量设置
+    await this.redisService.mset(items)
+
+    this.logger.log(`已将贡献者 ${contributorIds.join(', ')} 添加到速率限制黑名单，持续 ${ttl} 秒`)
+  }
+
+  /**
+   * 获取所有速率限制的贡献者ID
+   * @returns 贡献者ID数组
+   */
+  private async getExcludedContributors(): Promise<string[]> {
+    try {
+      // 使用 keys 命令获取所有匹配的键
+      const keys = await this.redisService.keys(`${this.RATE_LIMIT_PREFIX}*`)
+
+      // 从键中提取贡献者ID
+      return keys.map(key => key.substring(this.RATE_LIMIT_PREFIX.length))
+    } catch (error) {
+      this.logger.error('获取速率限制贡献者列表失败', error)
+      return []
     }
   }
 

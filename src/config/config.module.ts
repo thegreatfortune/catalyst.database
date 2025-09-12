@@ -20,6 +20,10 @@ import { ConfigService } from './config.service'
                 MONGODB_PASSWORD: Joi.string(),
                 MONGODB_APPNAME: Joi.string(),
 
+                // Redis配置
+                UPSTASH_REDIS_REST_URL: Joi.string().required(),
+                UPSTASH_REDIS_REST_TOKEN: Joi.string().required(),
+
                 // 安全配置
                 CORS_ORIGINS: Joi.string().default('http://localhost:3000'),
                 RATE_LIMIT_WINDOW: Joi.string().default('15m'),

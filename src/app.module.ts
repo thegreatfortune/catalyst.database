@@ -11,7 +11,8 @@ import { CreditModule } from './credit/credit.module'
 import { SocialAuthModule } from './social-auth/social-auth.module'
 import { SocialModule } from './social/social.module'
 import { DatabaseModule } from './database/database.module'
-import { AnonymousIdentityModule } from './anonymous-identity/anonymous-identity.module';
+import { AnonymousIdentityModule } from './anonymous-identity/anonymous-identity.module'
+import { RedisModule } from './redis/redis.module'
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { AnonymousIdentityModule } from './anonymous-identity/anonymous-identity
     UserModule,
     ContentModule,
     LogModule,
+    RedisModule,
   ],
   controllers: [AppController],
   providers: [AppService],

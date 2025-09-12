@@ -61,6 +61,15 @@ export class ConfigService {
         return `mongodb+srv://${credentials}${this.mongodbUri}?${options}`
     }
 
+    get upstashRedisRestUrl(): string {
+        return this.getStringOrThrow('UPSTASH_REDIS_REST_URL')
+    }
+
+    get upstashRedisRestToken(): string {
+        return this.getStringOrThrow('UPSTASH_REDIS_REST_TOKEN')
+    }
+
+
     // 安全配置
     get corsOrigins(): string[] {
         return this.getString('CORS_ORIGINS', 'http://localhost:3000').split(',')

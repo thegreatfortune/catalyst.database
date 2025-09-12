@@ -1,5 +1,5 @@
 import { SocialProvider } from "src/schemas/user.schema"
-import { IsEnum, IsNotEmpty, IsMongoId, IsString, IsNumber, Min } from "class-validator"
+import { IsEnum, IsNotEmpty, IsMongoId, IsString, IsNumber, Min, IsArray, IsOptional } from "class-validator"
 import { Type } from "class-transformer"
 
 export class GetContributorDto {
@@ -16,4 +16,9 @@ export class GetContributorDto {
     @Min(1)
     @Type(() => Number)
     count: number
+
+    @IsArray()
+    @IsMongoId({ each: true })
+    @IsOptional()
+    toExcludedContributorIds?: string[]
 }
