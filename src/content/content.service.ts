@@ -9,12 +9,13 @@ import { Logger } from '@nestjs/common'
 import { CreditService } from '../credit/credit.service'
 import { RelatedEntityType, TransactionType } from 'src/schemas/credit.schema'
 import { GetContentsDto, GetMyContentsDto, SortType } from './dto/get-contents.dto'
-import { GetContentsResponseDto, MyContentItem } from './dto/get-contents-response.dto'
+import { ContentItem, GetContentsResponseDto, MyContentItem } from './dto/get-contents-response.dto'
 import { SocialService } from '../social/social.service'
 import { SocialAuthService } from '../social-auth/social-auth.service'
 import { XUser } from '../schemas/social.schema'
 import { CreditTransaction } from 'src/schemas/credit.schema'
 import { SocialProvider } from 'src/schemas/user.schema'
+import { UserV2 } from 'twitter-api-v2'
 
 @Injectable()
 export class ContentService {
@@ -388,31 +389,133 @@ export class ContentService {
 
       sortOptions[sortField] = sort === 'asc' ? 1 : -1
 
-      // 查询总数
-      const total = await this.contentModel.countDocuments().exec()
-
-      // 查询当前页数据
-      const contents = await this.contentModel
-        .find({ provider, status: { $in: [ContentStatus.PUBLISHED, ContentStatus.RAW] } })
-        .sort(sortOptions)
-        .skip(skip)
-        .limit(limit)
-        .exec()
-      // console.log('contents', contents[0].toJSON())
-      // console.log('lean', (await this.contentModel
-      //   .find({ provider, status: { $in: [ContentStatus.PUBLISHED, ContentStatus.RAW] } })
-      //   .sort(sortOptions)
-      //   .skip(skip)
-      //   .limit(limit)
-      //   .lean()
-      //   .exec())[0])
+      // 使用聚合查询获取内容并关联contributor信息
+      const aggregateResults = await this.contentModel.aggregate([
+        // 匹配条件
+        {
+          $match: {
+            provider,
+            status: { $in: [ContentStatus.PUBLISHED, ContentStatus.RAW] }
+          }
+        },
+        // 排序
+        { $sort: sortOptions },
+        // 分页
+        { $skip: skip },
+        { $limit: limit },
+        // 关联social集合，只关联provider为X的记录
+        {
+          $lookup: {
+            from: 'socials', // social集合名称
+            let: { contributorId: "$contributorId" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: { $eq: ["$userId", "$$contributorId"] },
+                  provider: SocialProvider.X
+                }
+              },
+              // 只获取需要的字段，减少数据传输
+              {
+                $project: {
+                  "details.id": 1,
+                  "details.username": 1,
+                  "details.name": 1,
+                  "details.profile_image_url": 1,
+                  "details.verified": 1
+                }
+              }
+            ],
+            as: 'contributorSocial'
+          }
+        },
+        // 处理关联结果
+        {
+          $addFields: {
+            contributor: {
+              $cond: {
+                if: { $gt: [{ $size: "$contributorSocial" }, 0] },
+                then: {
+                  // id: { $arrayElemAt: ["$contributorSocial.details.id", 0] },
+                  username: { $arrayElemAt: ["$contributorSocial.details.username", 0] },
+                  name: { $arrayElemAt: ["$contributorSocial.details.name", 0] },
+                  profile_image_url: { $arrayElemAt: ["$contributorSocial.details.profile_image_url", 0] },
+                  verified: { $arrayElemAt: ["$contributorSocial.details.verified", 0] },
+                  verified_type: { $arrayElemAt: ["$contributorSocial.details.verified_type", 0] }
+                },
+                else: null
+              }
+            }
+          }
+        },
+        // 移除不需要的字段
+        {
+          $project: {
+            contributorSocial: 0
+          }
+        }
+      ]).hint("provider_1_status_1").exec()
 
       // 计算总页数
+      const total = await this.contentModel.countDocuments().exec()
       const totalPages = Math.ceil(total / limit)
 
       // 构建分页响应
       const response: GetContentsResponseDto = {
-        items: contents.map(content => content.toJSON()) as Content[],
+        items: aggregateResults.map(content => {
+          console.log('content', content)
+          const contentItem: ContentItem = {
+            id: content._id.toString(),
+            provider: content.provider,
+            originalContent: content.originalContent,
+            aiGeneratedContent: content.aiGeneratedContent,
+            contentType: content.contentType,
+            metrics: content.metrics,
+            publicMetrics: content.publicMetrics,
+            rawId: content.rawId,
+            createdAt: new Date(content.createdAt).toISOString(),
+            updatedAt: new Date(content.updatedAt).toISOString(),
+            lastEditedTime: new Date(content.lastEditedTime).toISOString(),
+            publishedTime: content.publishedTime ? new Date(content.publishedTime).toISOString() : undefined,
+            status: content.status,
+            contributor: content.contributor
+          }
+          if (content.raw) {
+            contentItem.raw = {
+              data: {
+                id: content.raw.data.id,
+                author_id: content.raw.data.author_id,
+                text: content.raw.data.text,
+                attachments: content.raw.data.attachments,
+                edit_history_tweet_ids: content.raw.data.edit_history_tweet_ids,
+                public_metrics: content.raw.data.public_metrics,
+              },
+              includes: {
+                media: content.raw.includes.media,
+                users: content.raw.includes.users.map((user: UserV2) => {
+                  return {
+                    id: user.id,
+                    username: user.username,
+                    name: user.name,
+                    profile_image_url: user.profile_image_url,
+                    verified: user.verified,
+                    verified_type: user.verified_type
+                  }
+                })
+              }
+            }
+          }
+
+          if (content.replyToTweetId) {
+            contentItem.replyToTweetId = content.replyToTweetId
+          }
+
+          if (content.replyToRawUsername) {
+            contentItem.replyToRawUsername = content.replyToRawUsername
+          }
+
+          return contentItem
+        }),
         total,
         page,
         limit,
@@ -420,8 +523,6 @@ export class ContentService {
         hasNextPage: page < totalPages,
         hasPreviousPage: page > 1
       }
-
-      // console.log('response', response)
 
       return response
     } catch (error) {

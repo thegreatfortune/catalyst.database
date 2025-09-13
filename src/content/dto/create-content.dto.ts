@@ -156,6 +156,14 @@ export class CreateContentDto {
   @IsString()
   aiGeneratedContent?: string
 
+  @IsOptional()
+  @IsString()
+  replyToRawUsername?: string
+
+  @IsOptional()
+  @IsString()
+  replyToRawId?: string
+
   // @IsOptional()
   // @ValidateNested()
   // @Type(() => PublicMetricsDto)

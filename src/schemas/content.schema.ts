@@ -152,6 +152,18 @@ export class Content {
   rawId?: string
 
   @Prop({
+    type: String,
+    description: '回复的推文ID',
+  })
+  replyToRawId?: string
+
+  @Prop({
+    type: String,
+    description: '回复的推文用户名',
+  })
+  replyToRawUsername?: string
+
+  @Prop({
     required: true,
     type: Metrics,
     description: '平台特定指标'
@@ -223,6 +235,7 @@ ContentSchema.index({ contributorId: 1, contentType: 1, contentAttributes: 1 }, 
 ContentSchema.index({ contentType: 1 })
 ContentSchema.index({ contentAttributes: 1 })
 ContentSchema.index({ provider: 1 })
+ContentSchema.index({ provider: 1, status: 1 })
 ContentSchema.index({ contentType: 1, contentAttributes: 1 })
 ContentSchema.index({ rawId: 1 }, { partialFilterExpression: { rawId: { $ne: null } } })
 ContentSchema.index({ status: 1 })
