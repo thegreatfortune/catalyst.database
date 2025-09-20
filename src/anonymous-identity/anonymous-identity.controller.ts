@@ -35,10 +35,10 @@ export class AnonymousIdentityController {
         }
     }
 
-    @Get(':userId')
-    async getAnonymousIdentities(@Param('userId') userId: string) {
+    @Get(':userId/:anonId')
+    async getAnonymousIdentity(@Param('userId') userId: string, @Param('anonId') anonId: string): Promise<AnonymousIdentity> {
         try {
-            return this.anonymousIdentityService.findByUserId(userId)
+            return await this.anonymousIdentityService.findByUserId(userId, anonId) as AnonymousIdentity
         } catch (error) {
             if (error instanceof NotFoundException || error instanceof BadRequestException) {
                 throw error
@@ -46,4 +46,18 @@ export class AnonymousIdentityController {
             throw new InternalServerErrorException(`Failed to get anonymous identities for user ${userId}!`)
         }
     }
+
+    @Get(':userId')
+    async getAnonymousIdentities(@Param('userId') userId: string): Promise<AnonymousIdentity[]> {
+        try {
+            return await this.anonymousIdentityService.findByUserId(userId) as AnonymousIdentity[]
+        } catch (error) {
+            if (error instanceof NotFoundException || error instanceof BadRequestException) {
+                throw error
+            }
+            throw new InternalServerErrorException(`Failed to get anonymous identities for user ${userId}!`)
+        }
+    }
+
+
 }

@@ -102,6 +102,15 @@ export class Content {
 
   @Prop({
     type: mongoose.Schema.Types.ObjectId,
+    ref: 'AnonymousIdentity',
+    required: false,
+    default: null,
+    description: '关联的anonId，如为Null，表示为非匿名内容',
+  })
+  anonId?: string | null
+
+  @Prop({
+    type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: false,
     default: null

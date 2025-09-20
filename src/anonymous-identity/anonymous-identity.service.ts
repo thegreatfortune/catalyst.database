@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common'
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common'
 import { InjectConnection, InjectModel } from '@nestjs/mongoose'
 import mongoose, { ClientSession, Connection, Model, Types } from 'mongoose'
 import { AnonymousIdentity, AnonymousIdentityDocument } from '../schemas/anonymout-identity.schema'
@@ -16,12 +16,22 @@ export class AnonymousIdentityService {
         private readonly creditService: CreditService,
     ) { }
 
-    async findByUserId(userId: string): Promise<AnonymousIdentity[]> {
+    async findByUserId(userId: string, anonId?: string): Promise<AnonymousIdentity[] | AnonymousIdentity> {
         try {
-            return await this.anonymousIdentityModel.find({
+            const anonymouIdentities = await this.anonymousIdentityModel.find({
                 userId: new Types.ObjectId(userId),
                 isDeleted: false
             }).sort({ createdAt: -1 }).exec()
+
+            if (anonId) {
+                const anonymouIdentity = anonymouIdentities.find(a => a._id.toString() === anonId)
+                if (!anonymouIdentity) {
+                    throw new NotFoundException('No anonymous identity found!')
+                }
+                return anonymouIdentity.toJSON()
+            }
+
+            return anonymouIdentities.map(a => a.toJSON())
         } catch (error) {
             this.logger.error(`获取用户 ${userId} 的匿名身份失败`, error)
             throw error
@@ -118,7 +128,7 @@ export class AnonymousIdentityService {
                         }
                     })
                 }
-            } 
+            }
 
             // 执行批量操作
             if (bulkOps.length > 0) {
