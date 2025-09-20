@@ -1,5 +1,5 @@
 import { IsEnum, IsMongoId, IsNotEmpty, IsNumber, IsOptional, IsString } from "class-validator"
-import { RelatedEntityType, TransactionType } from "../../schemas/credit.schema"
+import { RelatedEntityType, CreditTransactionType } from "../../schemas/credit.schema"
 import { Type } from "class-transformer"
 
 
@@ -10,8 +10,8 @@ export class UpdateCreditDto {
 
     @IsNotEmpty()
     @IsString()
-    @IsEnum(TransactionType)
-    transactionType: TransactionType
+    @IsEnum(CreditTransactionType)
+    transactionType: CreditTransactionType
 
     @IsOptional()
     @IsNumber()

@@ -2,11 +2,12 @@ import { Module } from '@nestjs/common'
 import { UserService } from './user.service'
 import { UserController } from './user.controller'
 import { RefreshTokenService } from './refresh-token.service'
-import { CreditModule } from 'src/credit/credit.module'
-import { SocialModule } from 'src/social/social.module'
+import { CreditModule } from '../credit/credit.module'
+import { SocialModule } from '../social/social.module'
+import { FundsModule } from '../funds/funds.module'
 
 @Module({
-  imports: [CreditModule, SocialModule],
+  imports: [FundsModule, CreditModule, SocialModule],
   controllers: [UserController],
   providers: [UserService, RefreshTokenService],
   exports: [UserService],

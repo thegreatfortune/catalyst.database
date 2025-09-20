@@ -79,9 +79,11 @@ export class ContentController {
     }
 
     @Get(':userId')
-    async getMyContents(@Query() gcDto: GetContentsDto, @Param('userId') userId: string) {
+    async getMyContents(@Param('userId') userId: string, @Query() gcDto: GetContentsDto) {
         try {
-            return this.contentService.getMyContents({ ...gcDto, userId })
+            console.log(userId, gcDto)
+            return this.contentService.getContents(gcDto, userId)
+            // return this.contentService.getMyContents({ ...gcDto, userId })
         } catch (error) {
             throw new InternalServerErrorException('Failed to get my contents!')
         }

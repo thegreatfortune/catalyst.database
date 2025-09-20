@@ -28,6 +28,9 @@ import { ConfigService } from './config.service'
                 CORS_ORIGINS: Joi.string().default('http://localhost:3000'),
                 RATE_LIMIT_WINDOW: Joi.string().default('15m'),
                 RATE_LIMIT_MAX: Joi.number().default(100),
+
+                // 资金费率
+                FUND_RATE: Joi.number().default(40),
             }),
         }),
     ],

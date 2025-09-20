@@ -11,7 +11,7 @@ import { SocialProvider, User, UserDocument } from '../schemas/user.schema'
 import { SocialAuthService } from '../social-auth/social-auth.service'
 import { RemoveSocialDto } from './dto/remove-social.dto'
 import { CreditService } from '../credit/credit.service'
-import { TransactionType } from '../schemas/credit.schema'
+import { CreditTransactionType } from '../schemas/credit.schema'
 
 @Injectable()
 export class SocialService {
@@ -75,10 +75,10 @@ export class SocialService {
             await this.creditService.update({
                 userId,
                 transactionType: followersCount >= 5000
-                    ? TransactionType.BIND_V3
+                    ? CreditTransactionType.BIND_V3
                     : followersCount >= 1000
-                        ? TransactionType.BIND_V2
-                        : TransactionType.BIND_V1,
+                        ? CreditTransactionType.BIND_V2
+                        : CreditTransactionType.BIND_V1,
                 reason: 'Bind social account',
             }, session)
 

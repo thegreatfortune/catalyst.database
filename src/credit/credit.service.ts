@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
 import { ClientSession, Model, Types } from 'mongoose'
-import { Credit, CreditTransaction, TransactionFlow, TransactionTypeCreditChange } from '../schemas/credit.schema'
+import { Credit, CreditTransaction, TransactionFlow, CreditTransactionTypeChangeAmount } from '../schemas/credit.schema'
 
 import { Logger } from '@nestjs/common'
 import { GetCreditTransactionsDto, SortOrder } from './dto/get-credit-transactions.dto'
@@ -40,22 +40,22 @@ export class CreditService {
     async update(ucDto: UpdateCreditDto, session?: ClientSession): Promise<Credit> {
         try {
             const { userId, transactionType } = ucDto
-            const creditChange = TransactionTypeCreditChange[transactionType]
+            const changeAmount = CreditTransactionTypeChangeAmount[transactionType]
             const currentCredit = await this.creditModel.findOne({ userId }, null, { session }).exec()
 
-            if (creditChange < 0 && (!currentCredit || currentCredit.balance < Math.abs(creditChange))) {
-                throw new InsufficientCreditsException(Math.abs(creditChange), currentCredit ? currentCredit.balance : 0)
+            if (changeAmount < 0 && (!currentCredit || currentCredit.balance < Math.abs(changeAmount))) {
+                throw new InsufficientCreditsException(Math.abs(changeAmount), currentCredit ? currentCredit.balance : 0)
             }
 
             // 根据积分变化类型更新不同的计数器
             const updateOperation: any = {
                 $inc: {
-                    balance: creditChange
+                    balance: changeAmount
                 }
             }
 
             // 如果是获取积分，增加acquiredCount；如果是消耗积分，增加consumedCount
-            if (creditChange > 0) {
+            if (changeAmount > 0) {
                 updateOperation.$inc.acquiredCount = 1
             } else {
                 updateOperation.$inc.consumedCount = 1
@@ -136,7 +136,7 @@ export class CreditService {
         }
     }
 
-    async findFreePostsByUserId(userId: string, session?: ClientSession): Promise<string[]> {
+    async getFreePostsByUserId(userId: string, session?: ClientSession): Promise<string[]> {
         try {
             const credit = await this.creditModel.findOne({ userId }, null, { session }).exec()
             if (!credit) {
@@ -149,17 +149,17 @@ export class CreditService {
         }
     }
 
-    async findCreditTransactionsByUserId(userId: string, session?: ClientSession): Promise<CreditTransaction[]> {
-        try {
-            const creditTransactions = await this.creditTransactionModel.find({ userId }, null, { session }).exec()
-            return creditTransactions.map(ct => ct.toJSON())
-        } catch (error) {
-            this.logger.error('Failed to get credit transactions', error)
-            throw error
-        }
-    }
+    // async findCreditTransactionsByUserId(userId: string, session?: ClientSession): Promise<CreditTransaction[]> {
+    //     try {
+    //         const creditTransactions = await this.creditTransactionModel.find({ userId }, null, { session }).exec()
+    //         return creditTransactions.map(ct => ct.toJSON())
+    //     } catch (error) {
+    //         this.logger.error('Failed to get credit transactions', error)
+    //         throw error
+    //     }
+    // }
 
-    async findCreditTransactionById(id: string): Promise<CreditTransaction> {
+    async getCreditTransactionById(id: string): Promise<CreditTransaction> {
         try {
             const creditTransaction = await this.creditTransactionModel.findById(id).exec()
             if (!creditTransaction) {
@@ -172,14 +172,14 @@ export class CreditService {
         }
     }
 
-    async findCreditTransactions(gctDto: GetCreditTransactionsDto, userId: string): Promise<GetCreditTransactionsResponseDto> {
+    async getCreditTransactionsByUserId(gctDto: GetCreditTransactionsDto & { userId: string }): Promise<GetCreditTransactionsResponseDto> {
         try {
-            const { transactionType, page = 1, limit = 10, sortOrder = SortOrder.DESC, sortType } = gctDto
+            const { transactionType, page = 1, limit = 10, sortOrder = SortOrder.DESC, userId } = gctDto
             const skip = (page - 1) * limit
 
             // 构建排序条件
             const sort: Record<string, 1 | -1> = {}
-            sort[sortType] = sortOrder === SortOrder.ASC ? 1 : -1
+            sort['createdAt'] = sortOrder === SortOrder.ASC ? 1 : -1
 
 
             // 构建动态查询条件
@@ -224,8 +224,8 @@ export class CreditService {
         try {
             const creditTransaction = new CreditTransaction()
             creditTransaction.userId = ucDto.userId
-            creditTransaction.change = TransactionTypeCreditChange[ucDto.transactionType]
-            creditTransaction.transactionFlow = TransactionTypeCreditChange[ucDto.transactionType] > 0 ? TransactionFlow.INCOME : TransactionFlow.OUTCOME
+            creditTransaction.changeAmount = CreditTransactionTypeChangeAmount[ucDto.transactionType]
+            creditTransaction.transactionFlow = CreditTransactionTypeChangeAmount[ucDto.transactionType] > 0 ? TransactionFlow.INCOME : TransactionFlow.OUTCOME
             creditTransaction.transactionType = ucDto.transactionType
             creditTransaction.reason = ucDto.reason
             creditTransaction.balanceAfter = ucDto.balanceAfter

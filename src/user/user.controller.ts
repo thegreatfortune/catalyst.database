@@ -60,7 +60,6 @@ export class UserController {
     }
   }
 
-
   @Post('freePost')
   async updateFreePosts(@Body() ufoDto: UpdateFreePostDto) {
     try {
@@ -79,7 +78,7 @@ export class UserController {
   async getFreePosts(@Query() query: GetFreePostsDto) {
     try {
       const { userId } = query
-      return this.creditService.findFreePostsByUserId(userId)
+      return this.creditService.getFreePostsByUserId(userId)
     } catch (error) {
       if (error instanceof NotFoundException || error instanceof BadRequestException) {
         throw error
@@ -160,7 +159,7 @@ export class UserController {
   async getContributors(@Query() gcDto: GetContributorDto): Promise<string[]> {
     try {
       
-      const userId = await this.userService.findContributorIds(gcDto)
+      const userId = await this.userService.getContributorIds(gcDto)
       if (!userId) {
         throw new NotFoundException('未找到绑定X账号且有有效Token的用户')
       }

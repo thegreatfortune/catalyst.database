@@ -83,6 +83,10 @@ export class ConfigService {
         return this.getNumber('RATE_LIMIT_MAX', 100)
     }
 
+    get fundRate(): number {
+        return this.getNumber('FUND_RATE', 40)
+    }
+
     // 辅助方法
     private getString(key: string, defaultValue: string): string {
         const value = this.nestConfigService.get<string>(key)

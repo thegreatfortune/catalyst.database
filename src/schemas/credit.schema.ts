@@ -11,10 +11,11 @@ export enum TransactionFlow {
 }
 
 // 定义交易类型枚举
-export enum TransactionType {
+export enum CreditTransactionType {
     BIND_V1 = 'BIND_V1',         // 绑定社交媒体账号
     BIND_V2 = 'BIND_V2',         // 绑定社交媒体账号
     BIND_V3 = 'BIND_V3',
+
     POST = 'POST',         // 提交
     REPLY = 'REPLY',       // 评论
     AI = 'AI',             // AI使用
@@ -23,11 +24,12 @@ export enum TransactionType {
     CONTRIBUTE_POST = 'CONTRIBUTE_POST', // 贡献发帖
     CONTRIBUTE_REPLY = 'CONTRIBUTE_REPLY', // 贡献评论
     CONTRIBUTE_GET = 'CONTRIBUTE_GET', // 贡献获取
+    CONTRIBUTE_MEDIA_UPLOAD = 'CONTRIBUTE_MEDIA_UPLOAD', // 贡献上传媒体
 
     BUY = 'BUY', // 购买积分
 }
 
-export const TransactionTypeCreditChange = {
+export const CreditTransactionTypeChangeAmount = {
     BIND_V1: 100,
     BIND_V2: 300,
     BIND_V3: 800,
@@ -39,6 +41,8 @@ export const TransactionTypeCreditChange = {
     CONTRIBUTE_POST: 20,
     CONTRIBUTE_REPLY: 10,
     CONTRIBUTE_GET: 10,
+    CONTRIBUTE_MEDIA_UPLOAD: 10,
+
 
     BUY: -100,
 }
@@ -79,7 +83,6 @@ export class RelatedEntity {
     relatedId: string
 }
 
-
 @Schema({
     timestamps: true,
     collection: 'credit_transactions',
@@ -113,7 +116,7 @@ export class CreditTransaction {
         index: true, // 为统计优化添加索引
         description: '积分变化值（正数为产出，负数为消耗）'
     })
-    change: number
+    changeAmount: number
 
     @Prop({
         required: true,
@@ -127,10 +130,10 @@ export class CreditTransaction {
     @Prop({
         required: true,
         type: String,
-        enum: TransactionType,
+        enum: CreditTransactionType,
         description: '积分变动类型',
     })
-    transactionType: TransactionType
+    transactionType: CreditTransactionType
 
     @Prop({
         type: String,

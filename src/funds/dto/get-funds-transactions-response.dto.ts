@@ -1,10 +1,10 @@
-import { CreditTransaction} from "../../schemas/credit.schema"
+import { FundsTransaction } from "../../schemas/funds.schema"
 
-export class GetCreditTransactionsResponseDto {
+export interface GetFundsTransactionsResponseDto {
     /**
      * 当前页的数据
      */
-    items: CreditTransaction[]
+    items: FundsTransaction[]
 
     /**
      * 总记录数
@@ -37,4 +37,6 @@ export class GetCreditTransactionsResponseDto {
     hasPreviousPage: boolean
 }
 
-
+export interface GetTransactionByTxHashResponseDto {
+    transaction: FundsTransaction | null
+}

@@ -28,6 +28,7 @@ import { LoginUserDto } from './dto/login-user.dto'
 import { AnonymousIdentity, AnonymousIdentityDocument } from 'src/schemas/anonymout-identity.schema'
 import { RedisService } from '../redis/redis.service'
 import { GetContributorDto } from './dto/get-contributor.dto'
+import { FundsService } from '../funds/funds.service'
 
 export interface RandomUsersAggregationResult {
   _id: null
@@ -51,7 +52,7 @@ export class UserService {
     @InjectModel(Social.name) private socialModel: Model<Social>,
     @InjectModel(AnonymousIdentity.name) private anonymousIdentityModel: Model<AnonymousIdentity>,
     @InjectConnection() private connection: Connection,
-    private readonly socialService: SocialService,
+    private readonly fundsService: FundsService,
     private readonly creditService: CreditService,
     private readonly redisService: RedisService,
   ) { }
@@ -93,6 +94,7 @@ export class UserService {
       const createdUser = new this.userModel(user)
       await createdUser.save({ session })
 
+      await this.fundsService.create(createdUser._id.toString(), session)
       await this.creditService.create(createdUser._id.toString(), session)
 
       await session.commitTransaction()
@@ -395,7 +397,7 @@ export class UserService {
     }
   }
 
-  async findContributorIds(gcDto: GetContributorDto): Promise<string[]> {
+  async getContributorIds(gcDto: GetContributorDto): Promise<string[]> {
     const { excludedUserId, provider, count, toExcludedContributorIds } = gcDto
     try {
       this.logger.log(`开始基于权重随机选择${provider}平台用户，排除用户ID: ${excludedUserId}`)

@@ -7,15 +7,19 @@ import { CreateContentDto } from '../content/dto/create-content.dto'
 import { PublishContentDto, UpdateRawDto } from './dto/update-content.dto'
 import { Logger } from '@nestjs/common'
 import { CreditService } from '../credit/credit.service'
-import { RelatedEntityType, TransactionType } from 'src/schemas/credit.schema'
+import { RelatedEntityType, CreditTransactionType } from 'src/schemas/credit.schema'
 import { GetContentsDto, GetMyContentsDto, SortType } from './dto/get-contents.dto'
 import { ContentItem, GetContentsResponseDto, MyContentItem } from './dto/get-contents-response.dto'
 import { SocialService } from '../social/social.service'
 import { SocialAuthService } from '../social-auth/social-auth.service'
 import { XUser } from '../schemas/social.schema'
-import { CreditTransaction } from 'src/schemas/credit.schema'
-import { SocialProvider } from 'src/schemas/user.schema'
+import { CreditTransaction } from '../schemas/credit.schema'
+import { SocialProvider } from '../schemas/user.schema'
 import { UserV2 } from 'twitter-api-v2'
+import { FundsService } from '../funds/funds.service'
+import { FundsTransactionType } from 'src/schemas/funds.schema'
+import { ConfigService } from '../config/config.service'
+
 
 @Injectable()
 export class ContentService {
@@ -25,8 +29,10 @@ export class ContentService {
     @InjectModel(Content.name) private contentModel: Model<Content>,
     @InjectModel('CreditTransaction') private creditTransactionModel: Model<CreditTransaction>,
     @InjectModel('Social') private socialModel: Model<any>,
+    private readonly configService: ConfigService,
     private readonly socialService: SocialService,
     private readonly socialAuthService: SocialAuthService,
+    private readonly fundsService: FundsService,
     private readonly creditService: CreditService,
   ) { }
 
@@ -177,9 +183,10 @@ export class ContentService {
       if (updatedContent.userId) {
         // 如果是发布新推，且不存在expiryTime
         if (!isReply && !expiryTime) {
+          // 更新credit积分
           await this.creditService.update({
             userId: updatedContent.userId,
-            transactionType: TransactionType.POST,
+            transactionType: CreditTransactionType.POST,
             reason: 'Publish content',
             relatedEntities: [
               {
@@ -188,6 +195,19 @@ export class ContentService {
               }
             ]
           }, session)
+          // 更新资金账户
+          await this.fundsService.update({
+            userId: updatedContent.userId,
+            transactionType: FundsTransactionType.POST,
+            reason: 'Publish content',
+            relatedEntities: [
+              {
+                type: RelatedEntityType.CONTENT,
+                relatedId: updatedContent._id.toString()
+              }
+            ]
+          }, session)
+
         }
         // 如果是回复推文
         if (isReply) {
@@ -197,9 +217,23 @@ export class ContentService {
               expiryTime,
             }, session)
           } else {
+            // 更新credit积分
             await this.creditService.update({
               userId: updatedContent.userId,
-              transactionType: TransactionType.REPLY,
+              transactionType: CreditTransactionType.REPLY,
+              reason: 'Reply content',
+              relatedEntities: [
+                {
+                  type: RelatedEntityType.CONTENT,
+                  relatedId: updatedContent._id.toString()
+                }
+              ]
+            }, session)
+
+            // 更新资金账户
+            await this.fundsService.update({
+              userId: updatedContent.userId,
+              transactionType: FundsTransactionType.REPLY,
               reason: 'Reply content',
               relatedEntities: [
                 {
@@ -213,9 +247,10 @@ export class ContentService {
 
         // 如果 Content contributorId 也不为空，即匿名模式的content，更新点数，记录点数变化日志
         if (contributorId) {
+          // 更新contributor的credit积分
           await this.creditService.update({
             userId: contributorId,
-            transactionType: isReply ? TransactionType.CONTRIBUTE_REPLY : TransactionType.CONTRIBUTE_POST,
+            transactionType: isReply ? CreditTransactionType.CONTRIBUTE_REPLY : CreditTransactionType.CONTRIBUTE_POST,
             reason: isReply ? 'Contribute reply' : 'Contribute post',
             relatedEntities: [
               {
@@ -225,6 +260,20 @@ export class ContentService {
             ]
           }, session)
 
+          // 更新contributor的资金账户
+          await this.fundsService.update({
+            userId: contributorId,
+            transactionType: isReply ? FundsTransactionType.CONTRIBUTE_REPLY : FundsTransactionType.CONTRIBUTE_POST,
+            reason: isReply ? 'Contribute reply' : 'Contribute post',
+            relatedEntities: [
+              {
+                type: RelatedEntityType.CONTENT,
+                relatedId: updatedContent._id.toString()
+              }
+            ]
+          }, session)
+
+          // 更新contributor的socialAuth的 lastUsedAt
           await this.socialAuthService.updateSocialAuth({
             userId: contributorId,
             provider: updatedContent.provider
@@ -309,7 +358,20 @@ export class ContentService {
       // 更新点数，记录点数变化日志
       await this.creditService.update({
         userId: contributorId,
-        transactionType: TransactionType.CONTRIBUTE_GET,
+        transactionType: CreditTransactionType.CONTRIBUTE_GET,
+        reason: 'Get and update raw content',
+        relatedEntities: [
+          {
+            type: RelatedEntityType.CONTENT,
+            relatedId: updatedContent._id.toString()
+          }
+        ]
+      }, session)
+
+      // 更新contributor的资金账户
+      await this.fundsService.update({
+        userId: contributorId,
+        transactionType: FundsTransactionType.CONTRIBUTE_GET,
         reason: 'Get and update raw content',
         relatedEntities: [
           {
@@ -350,10 +412,19 @@ export class ContentService {
    * @param gcDto 
    * @returns 
    */
-  async getContents(gcDto: GetContentsDto) {
+  async getContents(gcDto: GetContentsDto, userId?: string) {
     try {
       const { provider, limit = 10, page = 1, sort = 'desc', sortType = SortType.createdAt } = gcDto
       const skip = (page - 1) * limit
+
+      const matchCondition: Record<string, any> = {
+        provider,
+        status: { $in: [ContentStatus.PUBLISHED, ContentStatus.RAW] }
+      }
+      if (userId) {
+        matchCondition.userId = new Types.ObjectId(userId)
+      }
+
 
       // 构建排序条件
       const sortOptions: Record<string, 1 | -1> = {}
@@ -393,10 +464,7 @@ export class ContentService {
       const aggregateResults = await this.contentModel.aggregate([
         // 匹配条件
         {
-          $match: {
-            provider,
-            status: { $in: [ContentStatus.PUBLISHED, ContentStatus.RAW] }
-          }
+          $match: matchCondition
         },
         // 排序
         { $sort: sortOptions },
@@ -454,11 +522,15 @@ export class ContentService {
             contributorSocial: 0
           }
         }
-      ]).hint("provider_1_status_1").exec()
+      ]).hint(userId ? "userId_1_provider_1_status_1" : "provider_1_status_1").exec()
 
       // 计算总页数
       const total = await this.contentModel.countDocuments().exec()
       const totalPages = Math.ceil(total / limit)
+
+      console.log('total', total)
+      console.log('totalPages', totalPages)
+      console.log('aggregateResults', aggregateResults)
 
       // 构建分页响应
       const response: GetContentsResponseDto = {
@@ -583,7 +655,7 @@ export class ContentService {
           transaction.relatedEntities.forEach(entity => {
             if (entity.type === RelatedEntityType.CONTENT) {
               const contentId = entity.relatedId.toString()
-              creditMap.set(contentId, transaction.change)
+              creditMap.set(contentId, transaction.changeAmount)
             }
           })
         }

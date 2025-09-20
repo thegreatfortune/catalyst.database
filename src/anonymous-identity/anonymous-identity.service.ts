@@ -5,7 +5,7 @@ import { AnonymousIdentity, AnonymousIdentityDocument } from '../schemas/anonymo
 import { UpdateAnonymousIdentityDto } from './dto/update-anonymous-identity.dto'
 import { CreditService } from 'src/credit/credit.service'
 import { AddAnonymousIdentityDto } from './dto/add-anonymous-identity.dto'
-import { TransactionFlow, TransactionType, TransactionTypeCreditChange } from '../schemas/credit.schema'
+import { TransactionFlow, CreditTransactionType, CreditTransactionTypeChangeAmount } from '../schemas/credit.schema'
 
 @Injectable()
 export class AnonymousIdentityService {
@@ -51,13 +51,13 @@ export class AnonymousIdentityService {
             if (count > 0) {
                 const credit = await this.creditService.findByUserId(userId, session)
 
-                if (credit.balance < TransactionTypeCreditChange.BUY_ANON_ID) {
+                if (credit.balance < CreditTransactionTypeChangeAmount.BUY_ANON_ID) {
                     throw new Error('积分不足')
                 }
 
                 await this.creditService.update({
                     userId,
-                    transactionType: TransactionType.BUY_ANON_ID,
+                    transactionType: CreditTransactionType.BUY_ANON_ID,
                     reason: 'Buy anonymous identity'
                 }, session)
             }

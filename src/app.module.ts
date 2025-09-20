@@ -13,6 +13,7 @@ import { SocialModule } from './social/social.module'
 import { DatabaseModule } from './database/database.module'
 import { AnonymousIdentityModule } from './anonymous-identity/anonymous-identity.module'
 import { RedisModule } from './redis/redis.module'
+import { FundsModule } from './funds/funds.module'
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { RedisModule } from './redis/redis.module'
     SocialModule,
     SocialAuthModule,
     CreditModule,
+    FundsModule,
     AnonymousIdentityModule,
     UserModule,
     ContentModule,
