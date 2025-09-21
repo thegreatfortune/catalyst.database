@@ -136,13 +136,14 @@ export class CreditService {
         }
     }
 
-    async getFreePostsByUserId(userId: string, session?: ClientSession): Promise<string[]> {
+    async getFreePostsByUserId(userId: string, session?: ClientSession): Promise<Credit> {
         try {
             const credit = await this.creditModel.findOne({ userId }, null, { session }).exec()
             if (!credit) {
                 throw new NotFoundException('Not found credit!')
             }
-            return credit ? credit.toJSON().freePosts : []
+
+            return credit.toJSON()
         } catch (error) {
             this.logger.error('Failed to get credit', error)
             throw error

@@ -9,7 +9,6 @@ export enum SortOrder {
 }
 
 export class GetCreditTransactionsDto {
-
     @IsNotEmpty()
     @IsMongoId()
     userId: string

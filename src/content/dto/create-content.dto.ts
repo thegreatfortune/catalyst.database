@@ -133,6 +133,10 @@ export class CreateContentDto {
 
   @IsOptional()
   @IsMongoId()
+  anonId?: string
+
+  @IsOptional()
+  @IsMongoId()
   contributorId?: string
 
   @IsNotEmpty()

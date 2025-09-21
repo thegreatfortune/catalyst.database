@@ -11,17 +11,7 @@ export class FundsController {
         private readonly fundsService: FundsService
     ) { }
 
-    @Get(':userId')
-    async getFunds(@Param('userId') userId: string) {
-        try {
-            return this.fundsService.getFunds(userId)
-        } catch (error) {
-            if (error instanceof BadRequestException || error instanceof NotFoundException) {
-                throw error
-            }
-            throw new InternalServerErrorException('Failed to get funds')
-        }
-    }
+
 
     @Get('transactions')
     async getTransactionsByUserId(@Query() gftDto: GetFundsTransactionsDto) {
@@ -71,4 +61,15 @@ export class FundsController {
         }
     }
 
+    @Get(':userId')
+    async getFunds(@Param('userId') userId: string) {
+        try {
+            return this.fundsService.getFunds(userId)
+        } catch (error) {
+            if (error instanceof BadRequestException || error instanceof NotFoundException) {
+                throw error
+            }
+            throw new InternalServerErrorException('Failed to get funds')
+        }
+    }
 }

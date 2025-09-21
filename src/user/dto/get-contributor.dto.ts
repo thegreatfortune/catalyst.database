@@ -1,6 +1,6 @@
 import { SocialProvider } from "src/schemas/user.schema"
 import { IsEnum, IsNotEmpty, IsMongoId, IsString, IsNumber, Min, IsArray, IsOptional } from "class-validator"
-import { Type } from "class-transformer"
+import { Type, Transform } from "class-transformer"
 
 export class GetContributorDto {
     @IsMongoId()
@@ -20,5 +20,11 @@ export class GetContributorDto {
     @IsArray()
     @IsMongoId({ each: true })
     @IsOptional()
+    @Transform(({ value }) => {
+        if (typeof value === 'string' && value) {
+            return value.split(',')
+        }
+        return []
+    })
     toExcludedContributorIds?: string[]
 }

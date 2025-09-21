@@ -25,14 +25,16 @@ export class FundsService {
         private readonly configService: ConfigService,
     ) { }
 
-    async create(userId: string, session?: ClientSession): Promise<Funds> {
+    async create(userId: string, withdrawAddress: string, session?: ClientSession): Promise<Funds> {
         try {
             // 创建资金账户
             const createdFunds = new this.fundsModel({
                 userId,
                 balance: 0,
                 totalDeposit: 0,
+                totalDepositCount: 0,
                 totalWithdraw: 0,
+                withdrawAddress,
             })
 
             await createdFunds.save({ session })

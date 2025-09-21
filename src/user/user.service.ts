@@ -60,10 +60,10 @@ export class UserService {
 
   /**
    * 创建用户，同时报错一个refreshToken
-   * @param createUserDto 
+   * @param cuDto 
    * @returns 
    */
-  async create(createUserDto: CreateUserDto): Promise<UserInfo> {
+  async create(cuDto: CreateUserDto): Promise<UserInfo> {
     const session = await this.connection.startSession()
     session.startTransaction()
     try {
@@ -83,10 +83,10 @@ export class UserService {
         }
       }
       const user = {
-        walletAddress: createUserDto.walletAddress,
-        chainId: createUserDto.chainId,
-        lastSignedAt: createUserDto.lastSignedAt,
-        name: createUserDto.walletAddress.slice(-6).toUpperCase(),
+        walletAddress: cuDto.walletAddress,
+        chainId: cuDto.chainId,
+        lastSignedAt: cuDto.lastSignedAt,
+        name: cuDto.walletAddress.slice(-6).toUpperCase(),
         isActive: true,
         preferences
       }
@@ -94,7 +94,7 @@ export class UserService {
       const createdUser = new this.userModel(user)
       await createdUser.save({ session })
 
-      await this.fundsService.create(createdUser._id.toString(), session)
+      await this.fundsService.create(createdUser._id.toString(), cuDto.walletAddress, session)
       await this.creditService.create(createdUser._id.toString(), session)
 
       await session.commitTransaction()
@@ -400,7 +400,7 @@ export class UserService {
   async getContributorIds(gcDto: GetContributorDto): Promise<string[]> {
     const { excludedUserId, provider, count, toExcludedContributorIds } = gcDto
     try {
-      this.logger.log(`开始基于权重随机选择${provider}平台用户，排除用户ID: ${excludedUserId}`)
+      this.logger.log(`开始基于权重随机选择${provider}平台用户，排除用户ID: ${excludedUserId}, 排除贡献者ID: ${toExcludedContributorIds}`)
 
       // 1. 从 Redis 获取已被速率限制的贡献者ID
       const excludedContributors = await this.getExcludedContributors()

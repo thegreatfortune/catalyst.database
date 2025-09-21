@@ -11,6 +11,19 @@ export class CreditController {
         private readonly creditService: CreditService
     ) { }
 
+
+    @Get('transactions')
+    async getCreditTransactionsByUserId(@Query() gctDto: GetCreditTransactionsDto) {
+        try {
+            return this.creditService.getCreditTransactionsByUserId(gctDto)
+        } catch (error) {
+            if (error instanceof NotFoundException) {
+                throw error
+            }
+            throw new InternalServerErrorException(`Failed to get credit transactions by user id: ${error.message}`)
+        }
+    }
+
     @Get(':userId')
     async getCredit(@Param('userId') userId: string) {
         try {
@@ -23,15 +36,4 @@ export class CreditController {
         }
     }
 
-    @Get('/transactions')
-    async getCreditTransactionsByUserId(@Query() gctDto: GetCreditTransactionsDto) {
-        try {
-            return this.creditService.getCreditTransactionsByUserId(gctDto)
-        } catch (error) {
-            if (error instanceof NotFoundException) {
-                throw error
-            }
-            throw new InternalServerErrorException(`Failed to get credit transactions by user id: ${error.message}`)
-        }
-    }
 }
