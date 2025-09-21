@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
-import { InjectModel } from '@nestjs/mongoose'
-import { ClientSession, Model, Types } from 'mongoose'
-import { Credit, CreditTransaction, TransactionFlow, CreditTransactionTypeChangeAmount } from '../schemas/credit.schema'
+import { InjectConnection, InjectModel } from '@nestjs/mongoose'
+import { ClientSession, Connection, Model, Types } from 'mongoose'
+import { Credit, CreditTransaction, TransactionFlow, CreditTransactionTypeChangeAmount, CreditTransactionType } from '../schemas/credit.schema'
 
 import { Logger } from '@nestjs/common'
 import { GetCreditTransactionsDto, SortOrder } from './dto/get-credit-transactions.dto'
@@ -9,14 +9,46 @@ import { GetCreditTransactionsResponseDto } from './dto/get-credit-transactions-
 import { InsufficientCreditsException } from './exceptions/insufficient-credits.exception'
 import { UpdateFreePostDto } from 'src/user/dto/update-freepost.dto'
 import { UpdateCreditDto } from './dto/update-credit.dto'
+import { UploadMediaCreditAndFundsDto } from './dto/upload-media-credit-and-funds'
+import { FundsService } from '../funds/funds.service'
+import { FundsTransactionType } from 'src/schemas/funds.schema'
 
 @Injectable()
 export class CreditService {
     private readonly logger = new Logger(CreditService.name)
     constructor(
+        @InjectConnection() private connection: Connection,
         @InjectModel(Credit.name) private creditModel: Model<Credit>,
         @InjectModel(CreditTransaction.name) private creditTransactionModel: Model<CreditTransaction>,
+        private readonly fundsService: FundsService,
     ) { }
+
+    async uploadMediaCreditAndFunds(umcafDto: UploadMediaCreditAndFundsDto) {
+        const { userId: contributorId } = umcafDto
+        const session = await this.connection.startSession()
+        session.startTransaction()
+        try {
+            await this.update({
+                userId: contributorId,
+                transactionType: CreditTransactionType.CONTRIBUTE_MEDIA_UPLOAD,
+                reason: `Upload media ${umcafDto.mediaId}`,
+            }, session)
+            await this.fundsService.update({
+                userId: contributorId,
+                transactionType: FundsTransactionType.CONTRIBUTE_MEDIA_UPLOAD,
+                reason: `Upload media ${umcafDto.mediaId}`,
+            }, session)
+            await session.commitTransaction()
+
+            return { success: true }
+        } catch (error) {
+            await session.abortTransaction()
+            this.logger.error(`Failed to update credit and funds when upload media: ${error.message}`)
+            throw error
+        } finally {
+            await session.endSession()
+        }
+    }
 
     async create(userId: string, session?: ClientSession): Promise<Credit> {
         try {

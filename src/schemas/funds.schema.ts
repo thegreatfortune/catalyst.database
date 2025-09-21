@@ -33,6 +33,7 @@ export const FundsTransactionTypeChangeAmount = {
     CONTRIBUTE_POST: 20,
     CONTRIBUTE_REPLY: 10,
     CONTRIBUTE_GET: 10,
+    CONTRIBUTE_MEDIA_UPLOAD: 10,
 
     DEPOSIT: 100,
     WITHDRAW: -100,
