@@ -138,6 +138,7 @@ export class CreditService {
     async updateFreePosts(ufpDto: UpdateFreePostDto, session?: ClientSession): Promise<string[]> {
         const { userId, expiryTime } = ufpDto
         try {
+            console.log('expiryTime', expiryTime.toISOString())
             const userIdAsObjectId = new Types.ObjectId(userId)
 
             // 1. 使用 $pull 原子性地移除所有早于 expiryTime 的记录
@@ -163,10 +164,14 @@ export class CreditService {
                 throw new Error('Maximum free posts reached within the time window.')
             }
 
-            // 3. 如果还有额度，使用 $push 插入新的时间戳字符串
+            // 3. 使用更明确的数组操作
+            const updatedFreePosts = [...updatedCredit.freePosts, new Date().toISOString()]
+
+            // 4. 如果还有额度，使用 $push 插入新的时间戳字符串
             const finalCredit = await this.creditModel.findOneAndUpdate(
                 { userId: userIdAsObjectId },
-                { $push: { freePosts: new Date().toISOString() } },
+                { $set: { freePosts: updatedFreePosts } },
+                // { $push: { freePosts: new Date().toISOString() } },
                 { new: true, session }
             ).exec()
             if (!finalCredit) {

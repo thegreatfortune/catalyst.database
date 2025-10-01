@@ -125,7 +125,6 @@ export class CreditTransaction {
     })
     transactionFlow: TransactionFlow
 
-
     @Prop({
         required: true,
         type: String,
