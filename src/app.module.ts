@@ -14,6 +14,7 @@ import { DatabaseModule } from './database/database.module'
 import { AnonymousIdentityModule } from './anonymous-identity/anonymous-identity.module'
 import { RedisModule } from './redis/redis.module'
 import { FundsModule } from './funds/funds.module'
+import { TransactionModule } from './transaction/transaction.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { FundsModule } from './funds/funds.module'
     ContentModule,
     LogModule,
     RedisModule,
+    TransactionModule,
   ],
   controllers: [AppController],
   providers: [AppService],

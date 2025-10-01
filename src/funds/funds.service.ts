@@ -14,6 +14,7 @@ import { UpdateFundsDto } from './dto/update-funds.dto'
 import { Types } from 'mongoose'
 import { InsufficientFundsException } from './exceptions/insufficient-funds.exception'
 import { ConfigService } from '../config/config.service'
+import { OperationType, OperationTypeChangeAmount } from 'src/schemas/transaction.schema'
 
 @Injectable()
 export class FundsService {
@@ -385,14 +386,14 @@ export class FundsService {
      */
     async update(ufDto: UpdateFundsDto, session?: ClientSession): Promise<Funds> {
         try {
-            const { userId, transactionType } = ufDto
-            const changeAmount = (transactionType === FundsTransactionType.DEPOSIT ||
-                transactionType === FundsTransactionType.WITHDRAW)
-                ? FundsTransactionTypeChangeAmount[transactionType] * this.configService.fundRate / 100
-                : FundsTransactionTypeChangeAmount[transactionType]
+            const { userId, operationType } = ufDto
+            const changeAmount = (operationType === OperationType.DEPOSIT ||
+                operationType === OperationType.WITHDRAW)
+                ? OperationTypeChangeAmount[operationType] * this.configService.fundRate / 100
+                : OperationTypeChangeAmount[operationType]
 
             if (!changeAmount) {
-                throw new BadRequestException(`无效的交易类型: ${transactionType}`)
+                throw new BadRequestException(`无效的交易类型: ${operationType}`)
             }
 
             // 使用条件更新确保余额充足
@@ -425,18 +426,6 @@ export class FundsService {
                     throw new InsufficientFundsException(Math.abs(changeAmount), userExists.balance)
                 }
             }
-
-            // 创建交易记录
-            await this.createFundsTransaction({
-                userId,
-                changeAmount,
-                transactionFlow: changeAmount > 0 ? TransactionFlow.INCOME : TransactionFlow.OUTCOME,
-                transactionType,
-                reason: ufDto.reason,
-                balanceAfter: funds.balance,
-                transactionHash: ufDto.transactionHash,
-                relatedEntities: ufDto.relatedEntities,
-            }, session)
 
             return funds
         } catch (error) {

@@ -43,7 +43,6 @@ export const CreditTransactionTypeChangeAmount = {
     CONTRIBUTE_GET: 10,
     CONTRIBUTE_MEDIA_UPLOAD: 10,
 
-
     BUY: -100,
 }
 

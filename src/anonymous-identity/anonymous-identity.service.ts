@@ -3,9 +3,11 @@ import { InjectConnection, InjectModel } from '@nestjs/mongoose'
 import mongoose, { ClientSession, Connection, Model, Types } from 'mongoose'
 import { AnonymousIdentity, AnonymousIdentityDocument } from '../schemas/anonymout-identity.schema'
 import { UpdateAnonymousIdentityDto } from './dto/update-anonymous-identity.dto'
-import { CreditService } from 'src/credit/credit.service'
+import { CreditService } from '../credit/credit.service'
 import { AddAnonymousIdentityDto } from './dto/add-anonymous-identity.dto'
 import { TransactionFlow, CreditTransactionType, CreditTransactionTypeChangeAmount } from '../schemas/credit.schema'
+import { OperationType } from '../schemas/transaction.schema'
+import { TransactionService } from '../transaction/transaction.service'
 
 @Injectable()
 export class AnonymousIdentityService {
@@ -14,6 +16,7 @@ export class AnonymousIdentityService {
         @InjectModel(AnonymousIdentity.name) private anonymousIdentityModel: Model<AnonymousIdentity>,
         @InjectConnection() private connection: Connection,
         private readonly creditService: CreditService,
+        private readonly transactionService: TransactionService
     ) { }
 
     async findByUserId(userId: string, anonId?: string): Promise<AnonymousIdentity[] | AnonymousIdentity> {
@@ -65,9 +68,15 @@ export class AnonymousIdentityService {
                     throw new Error('积分不足')
                 }
 
-                await this.creditService.update({
+                const updatedCredit = await this.creditService.update({
                     userId,
-                    transactionType: CreditTransactionType.BUY_ANON_ID,
+                    operationType: OperationType.BUY_ANON_ID
+                }, session)
+
+                await this.transactionService.create({
+                    userId,
+                    operationType: OperationType.BUY_ANON_ID,
+                    creditBalanceAfter: updatedCredit.balance,
                     reason: 'Buy anonymous identity'
                 }, session)
             }

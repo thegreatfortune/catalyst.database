@@ -1,6 +1,5 @@
 import { IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator'
-import { FundsTransactionType } from '../../schemas/funds.schema'
-import { RelatedEntity } from '../../schemas/credit.schema'
+import { OperationType } from "../../schemas/transaction.schema"
 
 export class UpdateFundsDto {
     @IsNotEmpty()
@@ -8,20 +7,20 @@ export class UpdateFundsDto {
     userId: string
 
     @IsNotEmpty()
-    @IsEnum(FundsTransactionType)
-    transactionType: FundsTransactionType
+    @IsEnum(OperationType)
+    operationType: OperationType
 
-    @IsOptional()
-    @IsString()
-    reason?: string
+    // @IsOptional()
+    // @IsString()
+    // reason?: string
 
-    @IsOptional()
-    balanceAfter?: number
+    // @IsOptional()
+    // balanceAfter?: number
 
-    @IsOptional()
-    relatedEntities?: RelatedEntity[]
+    // @IsOptional()
+    // relatedEntities?: RelatedEntity[]
 
-    @IsOptional()
-    @IsString()
-    transactionHash?: string
+    // @IsOptional()
+    // @IsString()
+    // transactionHash?: string
 }

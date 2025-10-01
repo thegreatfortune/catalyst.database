@@ -19,6 +19,8 @@ import { UserV2 } from 'twitter-api-v2'
 import { FundsService } from '../funds/funds.service'
 import { FundsTransactionType } from 'src/schemas/funds.schema'
 import { ConfigService } from '../config/config.service'
+import { OperationType } from '../schemas/transaction.schema'
+import { TransactionService } from '../transaction/transaction.service'
 
 
 @Injectable()
@@ -34,6 +36,7 @@ export class ContentService {
     private readonly socialAuthService: SocialAuthService,
     private readonly fundsService: FundsService,
     private readonly creditService: CreditService,
+    private readonly transactionService: TransactionService
   ) { }
 
   async findAll(): Promise<Content[]> {
@@ -183,22 +186,18 @@ export class ContentService {
       if (updatedContent.userId) {
         // 如果是发布新推，且不存在expiryTime
         if (!isReply && !expiryTime) {
+          const userId = updatedContent.userId
+          const operationType = OperationType.POST
           // 更新credit积分
-          await this.creditService.update({
-            userId: updatedContent.userId,
-            transactionType: CreditTransactionType.POST,
-            reason: 'Publish content',
-            relatedEntities: [
-              {
-                type: RelatedEntityType.CONTENT,
-                relatedId: updatedContent._id.toString()
-              }
-            ]
-          }, session)
+          const updatedCredit = await this.creditService.update({ userId, operationType, }, session)
           // 更新资金账户
-          await this.fundsService.update({
-            userId: updatedContent.userId,
-            transactionType: FundsTransactionType.POST,
+          const updatedFunds = await this.fundsService.update({ userId, operationType, }, session)
+
+          await this.transactionService.create({
+            userId,
+            operationType,
+            creditBalanceAfter: updatedCredit.balance,
+            fundsBalanceAfter: updatedFunds.balance,
             reason: 'Publish content',
             relatedEntities: [
               {
@@ -217,10 +216,18 @@ export class ContentService {
               expiryTime,
             }, session)
           } else {
+            const userId = updatedContent.userId
+            const operationType = OperationType.REPLY
             // 更新credit积分
-            await this.creditService.update({
-              userId: updatedContent.userId,
-              transactionType: CreditTransactionType.REPLY,
+            const updatedCredit = await this.creditService.update({ userId, operationType, }, session)
+            // 更新资金账户
+            const updatedFunds = await this.fundsService.update({ userId, operationType, }, session)
+
+            await this.transactionService.create({
+              userId,
+              operationType,
+              creditBalanceAfter: updatedCredit.balance,
+              fundsBalanceAfter: updatedFunds.balance,
               reason: 'Reply content',
               relatedEntities: [
                 {
@@ -230,40 +237,28 @@ export class ContentService {
               ]
             }, session)
 
-            // 更新资金账户
-            await this.fundsService.update({
-              userId: updatedContent.userId,
-              transactionType: FundsTransactionType.REPLY,
-              reason: 'Reply content',
-              relatedEntities: [
-                {
-                  type: RelatedEntityType.CONTENT,
-                  relatedId: updatedContent._id.toString()
-                }
-              ]
-            }, session)
           }
         }
 
         // 如果 Content contributorId 也不为空，即匿名模式的content，更新点数，记录点数变化日志
         if (contributorId) {
           // 更新contributor的credit积分
-          await this.creditService.update({
+          const updatedCredit = await this.creditService.update({
             userId: contributorId,
-            transactionType: isReply ? CreditTransactionType.CONTRIBUTE_REPLY : CreditTransactionType.CONTRIBUTE_POST,
-            reason: isReply ? 'Contribute reply' : 'Contribute post',
-            relatedEntities: [
-              {
-                type: RelatedEntityType.CONTENT,
-                relatedId: updatedContent._id.toString()
-              }
-            ]
+            operationType: isReply ? OperationType.CONTRIBUTE_REPLY : OperationType.CONTRIBUTE_POST,
           }, session)
 
           // 更新contributor的资金账户
-          await this.fundsService.update({
+          const updatedFunds = await this.fundsService.update({
             userId: contributorId,
-            transactionType: isReply ? FundsTransactionType.CONTRIBUTE_REPLY : FundsTransactionType.CONTRIBUTE_POST,
+            operationType: isReply ? OperationType.CONTRIBUTE_REPLY : OperationType.CONTRIBUTE_POST,
+          }, session)
+
+          await this.transactionService.create({
+            userId: contributorId,
+            operationType: isReply ? OperationType.CONTRIBUTE_REPLY : OperationType.CONTRIBUTE_POST,
+            creditBalanceAfter: updatedCredit.balance,
+            fundsBalanceAfter: updatedFunds.balance,
             reason: isReply ? 'Contribute reply' : 'Contribute post',
             relatedEntities: [
               {
@@ -356,22 +351,22 @@ export class ContentService {
       await this.socialService.updateSocials({ provider, socialUsers }, session)
 
       // 更新点数，记录点数变化日志
-      await this.creditService.update({
+      const updatedCredit = await this.creditService.update({
         userId: contributorId,
-        transactionType: CreditTransactionType.CONTRIBUTE_GET,
-        reason: 'Get and update raw content',
-        relatedEntities: [
-          {
-            type: RelatedEntityType.CONTENT,
-            relatedId: updatedContent._id.toString()
-          }
-        ]
+        operationType: OperationType.CONTRIBUTE_GET,
       }, session)
 
       // 更新contributor的资金账户
-      await this.fundsService.update({
+      const updatedFunds = await this.fundsService.update({
         userId: contributorId,
-        transactionType: FundsTransactionType.CONTRIBUTE_GET,
+        operationType: OperationType.CONTRIBUTE_GET,
+      }, session)
+
+      await this.transactionService.create({
+        userId: contributorId,
+        operationType: OperationType.CONTRIBUTE_GET,
+        creditBalanceAfter: updatedCredit.balance,
+        fundsBalanceAfter: updatedFunds.balance,
         reason: 'Get and update raw content',
         relatedEntities: [
           {

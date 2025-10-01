@@ -7,6 +7,7 @@ import { Credit, CreditSchema, CreditTransaction, CreditTransactionSchema } from
 import { Content, ContentSchema } from '../schemas/content.schema'
 import { AnonymousIdentity, AnonymousIdentitySchema } from '../schemas/anonymout-identity.schema'
 import { Funds, FundsSchema, FundsTransaction, FundsTransactionSchema } from '../schemas/funds.schema'
+import { Transaction, TransactionSchema } from '../schemas/transaction.schema'
 
 
 @Global()
@@ -21,6 +22,7 @@ import { Funds, FundsSchema, FundsTransaction, FundsTransactionSchema } from '..
             { name: FundsTransaction.name, schema: FundsTransactionSchema },
             { name: Credit.name, schema: CreditSchema },
             { name: CreditTransaction.name, schema: CreditTransactionSchema },
+            { name: Transaction.name, schema: TransactionSchema },
             { name: Content.name, schema: ContentSchema },
         ]),
     ],
