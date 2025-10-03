@@ -594,6 +594,12 @@ export class UserService {
       } else {
         this.logger.log(`Successfully selected ${contributorIds.length} users: ${contributorIds.join(', ')}`)
       }
+
+      // 关键改动：选择完成后，立即将这些ID添加到Redis中，使用较短的TTL
+      if (contributorIds.length > 0) {
+        await this.addExcludedContributors(contributorIds, 300) // 5分钟的短期排除
+      }
+
       return contributorIds
     } catch (error) {
       this.logger.error(`Failed to prioritize select ${provider} platform users`, error)
