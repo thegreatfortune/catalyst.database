@@ -141,7 +141,7 @@ export class CreditService {
     async updateFreePosts(ufpDto: UpdateFreePostDto, session?: ClientSession): Promise<string[]> {
         const { userId, expiryTime } = ufpDto
         try {
-            console.log('expiryTime', expiryTime.toISOString())
+
             const userIdAsObjectId = new Types.ObjectId(userId)
 
             // 1. 使用 $pull 原子性地移除所有早于 expiryTime 的记录

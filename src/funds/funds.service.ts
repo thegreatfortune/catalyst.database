@@ -48,12 +48,10 @@ export class FundsService {
         }
     }
 
-    async getFunds(userId: string) {
+    async getFundsByUserId(userId: string): Promise<Funds> {
         const funds = await this.fundsModel.findOne({ userId })
-        if (!funds) {
-            throw new NotFoundException(`用户 ${userId} 的资金账户不存在`)
-        }
-        return funds
+        return funds ? funds.toJSON() : { userId, balance: 0, acquiredCount: 0, consumedCount: 0, totalAcquired: 0, totalConsumed: 0, totalDeposit: 0, totalDepositCount: 0, totalWithdraw: 0, totalWithdrawCount: 0, withdrawAddress: '' }
+
     }
 
     async deposit(depositDto: DepositDto) {

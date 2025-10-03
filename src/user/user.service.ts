@@ -29,6 +29,7 @@ import { AnonymousIdentity, AnonymousIdentityDocument } from 'src/schemas/anonym
 import { RedisService } from '../redis/redis.service'
 import { GetContributorDto } from './dto/get-contributor.dto'
 import { FundsService } from '../funds/funds.service'
+import { Funds } from '../schemas/funds.schema'
 
 export interface RandomUsersAggregationResult {
   _id: null
@@ -50,6 +51,7 @@ export class UserService {
     @InjectModel(User.name) private userModel: Model<User>,
     @InjectModel(Credit.name) private creditModel: Model<Credit>,
     @InjectModel(Social.name) private socialModel: Model<Social>,
+    @InjectModel(Funds.name) private fundsModel: Model<Funds>,
     @InjectModel(AnonymousIdentity.name) private anonymousIdentityModel: Model<AnonymousIdentity>,
     @InjectConnection() private connection: Connection,
     private readonly fundsService: FundsService,
@@ -137,6 +139,14 @@ export class UserService {
         },
         {
           $lookup: {
+            from: 'funds',
+            localField: '_id',
+            foreignField: 'userId',
+            as: 'fundsData'
+          }
+        },
+        {
+          $lookup: {
             from: 'socials',
             localField: '_id',
             foreignField: 'userId',
@@ -162,6 +172,7 @@ export class UserService {
         {
           $project: {
             creditData: 1,
+            fundsData: 1,
             socialsData: 1,
             anonymousIdentitiesData: 1,
             _id: 0
@@ -174,6 +185,7 @@ export class UserService {
       }
 
       const creditData = aggregationResult[0].creditData
+      const fundsData = aggregationResult[0].fundsData
       const socialsData = aggregationResult[0].socialsData
       const anonymousIdentitiesData = aggregationResult[0].anonymousIdentitiesData
 
@@ -181,9 +193,21 @@ export class UserService {
         ? this.creditModel.hydrate(creditData[0])
         : new this.creditModel({
           balance: 0,
+          totalAcquired: 0,
+          totalConsumed: 0,
           acquiredCount: 0,
           consumedCount: 0,
           freePosts: []
+        })
+
+      const funds = fundsData && fundsData.length > 0
+        ? this.fundsModel.hydrate(fundsData[0])
+        : new this.fundsModel({
+          balance: 0,
+          totalAcquired: 0,
+          totalConsumed: 0,
+          acquiredCount: 0,
+          consumedCount: 0,
         })
 
       const socials: SocialDocument[] = []
@@ -204,6 +228,7 @@ export class UserService {
       return {
         ...updatedUser.toJSON(),
         credit: credit.toJSON(),
+        funds: funds.toJSON(),
         socials: socials.map(social => social.toJSON()),
         anonymousIdentities: anonymousIdentities.map(identity => identity.toJSON()),
       }

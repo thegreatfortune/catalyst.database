@@ -35,9 +35,9 @@ export class FundsController {
     }
 
     @Get(':userId')
-    async getFunds(@Param('userId') userId: string) {
+    async getFundsByUserId(@Param('userId') userId: string) {
         try {
-            return this.fundsService.getFunds(userId)
+            return this.fundsService.getFundsByUserId(userId)
         } catch (error) {
             if (error instanceof BadRequestException || error instanceof NotFoundException) {
                 throw error

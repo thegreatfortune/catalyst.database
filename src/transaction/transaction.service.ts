@@ -37,13 +37,17 @@ export class TransactionService {
             const total = await this.transactionModel.countDocuments(query, { session }).exec()
 
             // 查询当前页数据
-            const transactions = await this.transactionModel
-                .find(query, { session })
+
+            let findQuery = this.transactionModel
+                .find(query)
                 .sort(sort)
                 .skip(skip)
                 .limit(limit)
-                .exec()
 
+            if (session) {
+                findQuery = findQuery.session(session)
+            }
+            const transactions = await findQuery.exec()
             // 计算总页数
             const totalPages = Math.ceil(total / limit)
 
@@ -60,7 +64,7 @@ export class TransactionService {
 
             return response
         } catch (error) {
-            this.logger.error('Failed to get points transactions by user id and transaction type', error)
+            this.logger.error('Failed to get transactions by user id and operation type', error)
             throw error
         }
     }
