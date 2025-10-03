@@ -597,7 +597,7 @@ export class UserService {
 
       // 关键改动：选择完成后，立即将这些ID添加到Redis中，使用较短的TTL
       if (contributorIds.length > 0) {
-        await this.addExcludedContributors(contributorIds, 300) // 5分钟的短期排除
+        await this.addExcludedContributors(contributorIds, 30) // 30秒的短期排除
       }
 
       return contributorIds
