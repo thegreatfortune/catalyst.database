@@ -1,7 +1,7 @@
 import { IsEnum, IsMongoId, IsNotEmpty, IsNumber, IsOptional, IsString } from "class-validator"
-import { RelatedEntityType, CreditTransactionType } from "../../schemas/credit.schema"
+
 import { Type } from "class-transformer"
-import { OperationType } from "../../schemas/transaction.schema"
+import { OperationType, RelatedEntityType } from "../../schemas/transaction.schema"
 
 
 export class UpdateCreditDto {

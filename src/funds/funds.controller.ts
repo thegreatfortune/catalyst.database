@@ -3,39 +3,12 @@ import { FundsService } from './funds.service'
 import { CreateFundsDto } from './dto/create-funds.dto'
 import { DepositDto } from './dto/deposit.dto'
 import { WithdrawDto } from './dto/withdraw.dto'
-import { GetFundsTransactionsDto } from './dto/get-funds-transactions.dto'
 
 @Controller('funds')
 export class FundsController {
     constructor(
         private readonly fundsService: FundsService
     ) { }
-
-
-
-    @Get('transactions')
-    async getTransactionsByUserId(@Query() gftDto: GetFundsTransactionsDto) {
-        try {
-            return this.fundsService.getTransactionsByUserId(gftDto)
-        } catch (error) {
-            if (error instanceof BadRequestException || error instanceof NotFoundException) {
-                throw error
-            }
-            throw new InternalServerErrorException('Failed to get transactions')
-        }
-    }
-
-    @Get('transactions/:txHash')
-    async getTransactionByTxHash(@Param('txHash') txHash: string) {
-        try {
-            return this.fundsService.getTransactionByTxHash(txHash)
-        } catch (error) {
-            if (error instanceof BadRequestException || error instanceof NotFoundException) {
-                throw error
-            }
-            throw new InternalServerErrorException('Failed to get transaction')
-        }
-    }
 
     @Post('deposit')
     async deposit(@Body() depositDto: DepositDto) {

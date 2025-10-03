@@ -5,8 +5,7 @@ import { AnonymousIdentity, AnonymousIdentityDocument } from '../schemas/anonymo
 import { UpdateAnonymousIdentityDto } from './dto/update-anonymous-identity.dto'
 import { CreditService } from '../credit/credit.service'
 import { AddAnonymousIdentityDto } from './dto/add-anonymous-identity.dto'
-import { TransactionFlow, CreditTransactionType, CreditTransactionTypeChangeAmount } from '../schemas/credit.schema'
-import { OperationType } from '../schemas/transaction.schema'
+import { OperationType, OperationTypeChangeAmount } from '../schemas/transaction.schema'
 import { TransactionService } from '../transaction/transaction.service'
 
 @Injectable()
@@ -64,7 +63,7 @@ export class AnonymousIdentityService {
             if (count > 0) {
                 const credit = await this.creditService.findByUserId(userId, session)
 
-                if (credit.balance < CreditTransactionTypeChangeAmount.BUY_ANON_ID) {
+                if (credit.balance < OperationTypeChangeAmount.BUY_ANON_ID) {
                     throw new Error('积分不足')
                 }
 

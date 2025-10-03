@@ -17,7 +17,7 @@ export class TransactionService {
     ) { }
 
 
-    async getTransactionsByUserId(gctDto: GetTransactionsDto & { userId: string }): Promise<GetTransactionsResponseDto> {
+    async getTransactionsByUserId(gctDto: GetTransactionsDto, session?: ClientSession): Promise<GetTransactionsResponseDto> {
         try {
             const { operationType, page = 1, limit = 10, sortOrder = SortOrder.DESC, userId } = gctDto
             const skip = (page - 1) * limit
@@ -34,11 +34,11 @@ export class TransactionService {
             }
 
             // 查询总数
-            const total = await this.transactionModel.countDocuments(query).exec()
+            const total = await this.transactionModel.countDocuments(query, { session }).exec()
 
             // 查询当前页数据
             const transactions = await this.transactionModel
-                .find(query)
+                .find(query, { session })
                 .sort(sort)
                 .skip(skip)
                 .limit(limit)
@@ -61,6 +61,15 @@ export class TransactionService {
             return response
         } catch (error) {
             this.logger.error('Failed to get points transactions by user id and transaction type', error)
+            throw error
+        }
+    }
+
+    async getTransactionByHash(transactionHash: string, session?: ClientSession): Promise<Transaction | null> {
+        try {
+            return await this.transactionModel.findOne({ transactionHash }, { session }).exec()
+        } catch (error) {
+            this.logger.error('Failed to get transaction by transaction hash', error)
             throw error
         }
     }

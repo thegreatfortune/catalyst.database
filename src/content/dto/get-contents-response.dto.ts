@@ -80,4 +80,5 @@ export interface ContentItem extends BaseItem {
 export interface MyContentItem extends BaseItem {
     contributorUsername?: string
     creditChange: number
+    fundsChange: number
 }

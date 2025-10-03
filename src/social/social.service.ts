@@ -11,7 +11,6 @@ import { SocialProvider, User, UserDocument } from '../schemas/user.schema'
 import { SocialAuthService } from '../social-auth/social-auth.service'
 import { RemoveSocialDto } from './dto/remove-social.dto'
 import { CreditService } from '../credit/credit.service'
-import { CreditTransactionType } from '../schemas/credit.schema'
 import { TransactionService } from '../transaction/transaction.service'
 import { OperationType } from '../schemas/transaction.schema'
 

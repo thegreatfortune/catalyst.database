@@ -7,19 +7,17 @@ import { CreateContentDto } from '../content/dto/create-content.dto'
 import { PublishContentDto, UpdateRawDto } from './dto/update-content.dto'
 import { Logger } from '@nestjs/common'
 import { CreditService } from '../credit/credit.service'
-import { RelatedEntityType, CreditTransactionType } from 'src/schemas/credit.schema'
 import { GetContentsDto, GetMyContentsDto, SortType } from './dto/get-contents.dto'
 import { ContentItem, GetContentsResponseDto, MyContentItem } from './dto/get-contents-response.dto'
 import { SocialService } from '../social/social.service'
 import { SocialAuthService } from '../social-auth/social-auth.service'
-import { XUser } from '../schemas/social.schema'
-import { CreditTransaction } from '../schemas/credit.schema'
+import { Social, XUser } from '../schemas/social.schema'
 import { SocialProvider } from '../schemas/user.schema'
 import { UserV2 } from 'twitter-api-v2'
 import { FundsService } from '../funds/funds.service'
 import { FundsTransactionType } from 'src/schemas/funds.schema'
 import { ConfigService } from '../config/config.service'
-import { OperationType } from '../schemas/transaction.schema'
+import { AccountType, OperationType, RelatedEntityType, Transaction } from '../schemas/transaction.schema'
 import { TransactionService } from '../transaction/transaction.service'
 
 
@@ -29,8 +27,8 @@ export class ContentService {
   constructor(
     @InjectConnection() private connection: Connection,
     @InjectModel(Content.name) private contentModel: Model<Content>,
-    @InjectModel('CreditTransaction') private creditTransactionModel: Model<CreditTransaction>,
-    @InjectModel('Social') private socialModel: Model<any>,
+    @InjectModel(Transaction.name) private transactionModel: Model<Transaction>,
+    @InjectModel(Social.name) private socialModel: Model<Social>,
     private readonly configService: ConfigService,
     private readonly socialService: SocialService,
     private readonly socialAuthService: SocialAuthService,
@@ -634,7 +632,7 @@ export class ContentService {
 
       // 4. 获取关联的积分交易记录
       const contentIds = contents.map(content => content._id)
-      const creditTransactions = await this.creditTransactionModel
+      const transactions = await this.transactionModel
         .find({
           userId,
           'relatedEntities.type': RelatedEntityType.CONTENT,
@@ -645,12 +643,14 @@ export class ContentService {
 
       // 创建积分交易映射表 (contentId -> creditChange)
       const creditMap = new Map()
-      creditTransactions.forEach(transaction => {
+      const fundsMap = new Map()
+      transactions.forEach(transaction => {
         if (transaction.relatedEntities && transaction.relatedEntities.length > 0) {
           transaction.relatedEntities.forEach(entity => {
             if (entity.type === RelatedEntityType.CONTENT) {
               const contentId = entity.relatedId.toString()
-              creditMap.set(contentId, transaction.changeAmount)
+              creditMap.set(contentId, transaction.accountChanges.find(ac => ac.accountType === AccountType.CREDIT)?.changeAmount ?? 0)
+              fundsMap.set(contentId, transaction.accountChanges.find(ac => ac.accountType === AccountType.FUNDS)?.changeAmount ?? 0)
             }
           })
         }
@@ -665,6 +665,7 @@ export class ContentService {
 
         // 添加积分变化
         const creditChange = creditMap.get(content._id.toString()) || 0
+        const fundsChange = fundsMap.get(content._id.toString()) || 0
 
 
         return {
@@ -683,6 +684,7 @@ export class ContentService {
           status: content.status,
           contributorUsername,
           creditChange,
+          fundsChange
         } as MyContentItem
       })
 

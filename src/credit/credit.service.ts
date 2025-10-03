@@ -1,11 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
 import { InjectConnection, InjectModel } from '@nestjs/mongoose'
 import { ClientSession, Connection, Model, Types } from 'mongoose'
-import { Credit, CreditTransaction, TransactionFlow, CreditTransactionTypeChangeAmount, CreditTransactionType } from '../schemas/credit.schema'
+import { Credit } from '../schemas/credit.schema'
 
 import { Logger } from '@nestjs/common'
-import { GetCreditTransactionsDto, SortOrder } from './dto/get-credit-transactions.dto'
-import { GetCreditTransactionsResponseDto } from './dto/get-credit-transactions-response.dto'
 import { InsufficientCreditsException } from './exceptions/insufficient-credits.exception'
 import { UpdateFreePostDto } from 'src/user/dto/update-freepost.dto'
 import { UpdateCreditDto } from './dto/update-credit.dto'
@@ -13,7 +11,7 @@ import { UploadMediaCreditAndFundsDto } from './dto/upload-media-credit-and-fund
 import { FundsService } from '../funds/funds.service'
 import { FundsTransactionType } from '../schemas/funds.schema'
 import { TransactionService } from '../transaction/transaction.service'
-import { AccountType, OperationType, OperationTypeChangeAmount } from 'src/schemas/transaction.schema'
+import {  OperationType, OperationTypeChangeAmount } from 'src/schemas/transaction.schema'
 
 @Injectable()
 export class CreditService {
@@ -21,14 +19,16 @@ export class CreditService {
     constructor(
         @InjectConnection() private connection: Connection,
         @InjectModel(Credit.name) private creditModel: Model<Credit>,
-        @InjectModel(CreditTransaction.name) private creditTransactionModel: Model<CreditTransaction>,
+        // @InjectModel(CreditTransaction.name) private creditTransactionModel: Model<CreditTransaction>,
         private readonly fundsService: FundsService,
         private readonly transactionService: TransactionService
     ) { }
 
     async uploadMediaCreditAndFunds(umcafDto: UploadMediaCreditAndFundsDto) {
+
         const { userId: contributorId } = umcafDto
         const session = await this.connection.startSession()
+
         session.startTransaction()
         try {
             // 1. 更新积分账户
@@ -51,7 +51,6 @@ export class CreditService {
             }, session)
 
             await session.commitTransaction()
-
             return { success: true }
         } catch (error) {
             await session.abortTransaction()
@@ -68,6 +67,8 @@ export class CreditService {
             const createdCredit = new this.creditModel({
                 userId,
                 balance: 0,
+                totalAcquired: 0,
+                totalConsumed: 0,
                 acquiredCount: 0,
                 consumedCount: 0,
                 freePosts: []
@@ -101,8 +102,10 @@ export class CreditService {
             // 如果是获取积分，增加acquiredCount；如果是消耗积分，增加consumedCount
             if (changeAmount > 0) {
                 updateOperation.$inc.acquiredCount = 1
-            } else {
+                updateOperation.$inc.totalAcquired = changeAmount
+            } else if (changeAmount < 0) {
                 updateOperation.$inc.consumedCount = 1
+                updateOperation.$inc.totalConsumed = Math.abs(changeAmount)
             }
 
             const credit = await this.creditModel.findOneAndUpdate(
@@ -128,7 +131,7 @@ export class CreditService {
     async findByUserId(userId: string, session?: ClientSession): Promise<Credit> {
         try {
             const credit = await this.creditModel.findOne({ userId: new Types.ObjectId(userId) }, null, { session }).exec()
-            return credit ? credit.toJSON() : { userId, balance: 0, acquiredCount: 0, consumedCount: 0, freePosts: [] }
+            return credit ? credit.toJSON() : { userId, balance: 0, acquiredCount: 0, consumedCount: 0, freePosts: [], totalAcquired: 0, totalConsumed: 0 }
         } catch (error) {
             this.logger.error('Failed to get credit', error)
             throw error
@@ -199,110 +202,15 @@ export class CreditService {
         }
     }
 
-    // async findCreditTransactionsByUserId(userId: string, session?: ClientSession): Promise<CreditTransaction[]> {
+    // async getCreditTransactionById(id: string): Promise<CreditTransaction> {
     //     try {
-    //         const creditTransactions = await this.creditTransactionModel.find({ userId }, null, { session }).exec()
-    //         return creditTransactions.map(ct => ct.toJSON())
+    //         const creditTransaction = await this.creditTransactionModel.findById(id).exec()
+    //         if (!creditTransaction) {
+    //             throw new NotFoundException(`Credit transaction not found with id ${id}`)
+    //         }
+    //         return creditTransaction.toJSON()
     //     } catch (error) {
-    //         this.logger.error('Failed to get credit transactions', error)
-    //         throw error
-    //     }
-    // }
-
-    async getCreditTransactionById(id: string): Promise<CreditTransaction> {
-        try {
-            const creditTransaction = await this.creditTransactionModel.findById(id).exec()
-            if (!creditTransaction) {
-                throw new NotFoundException(`Credit transaction not found with id ${id}`)
-            }
-            return creditTransaction.toJSON()
-        } catch (error) {
-            this.logger.error('Failed to get credit transaction', error)
-            throw error
-        }
-    }
-
-    // async getCreditTransactionsByUserId(gctDto: GetCreditTransactionsDto & { userId: string }): Promise<GetCreditTransactionsResponseDto> {
-    //     try {
-    //         const { transactionType, page = 1, limit = 10, sortOrder = SortOrder.DESC, userId } = gctDto
-    //         const skip = (page - 1) * limit
-
-    //         // 构建排序条件
-    //         const sort: Record<string, 1 | -1> = {}
-    //         sort['createdAt'] = sortOrder === SortOrder.ASC ? 1 : -1
-
-
-    //         // 构建动态查询条件
-    //         const query: Record<string, any> = { userId }
-    //         if (transactionType) {
-    //             query.transactionType = transactionType
-    //         }
-
-    //         // 查询总数
-    //         const total = await this.creditTransactionModel.countDocuments(query).exec()
-
-    //         // 查询当前页数据
-    //         const creditTransactions = await this.creditTransactionModel
-    //             .find(query)
-    //             .sort(sort)
-    //             .skip(skip)
-    //             .limit(limit)
-    //             .exec()
-
-    //         // 计算总页数
-    //         const totalPages = Math.ceil(total / limit)
-
-    //         // 构建分页响应
-    //         const response: GetCreditTransactionsResponseDto = {
-    //             items: creditTransactions.map(ct => ct.toJSON()),
-    //             total,
-    //             page,
-    //             limit,
-    //             totalPages,
-    //             hasNextPage: page < totalPages,
-    //             hasPreviousPage: page > 1
-    //         }
-
-    //         return response
-    //     } catch (error) {
-    //         this.logger.error('Failed to get points transactions by user id and transaction type', error)
-    //         throw error
-    //     }
-    // }
-
-    // private async createCreditTransaction(ucDto: UpdateCreditDto, session?: ClientSession): Promise<CreditTransaction> {
-    //     try {
-    //         const creditTransaction = new CreditTransaction()
-    //         creditTransaction.userId = ucDto.userId
-    //         creditTransaction.changeAmount = CreditTransactionTypeChangeAmount[ucDto.transactionType]
-    //         creditTransaction.transactionFlow = CreditTransactionTypeChangeAmount[ucDto.transactionType] > 0 ? TransactionFlow.INCOME : TransactionFlow.OUTCOME
-    //         creditTransaction.transactionType = ucDto.transactionType
-    //         creditTransaction.reason = ucDto.reason
-    //         creditTransaction.balanceAfter = ucDto.balanceAfter
-    //         creditTransaction.resourceTraded = ucDto.resourceTraded
-
-    //         // 处理 relatedEntities 的类型转换
-    //         if (ucDto.relatedEntities && ucDto.relatedEntities.length > 0) {
-    //             creditTransaction.relatedEntities = ucDto.relatedEntities.map(entity => ({
-    //                 type: entity.type,
-    //                 relatedId: entity.relatedId
-    //             }))
-    //         } else {
-    //             creditTransaction.relatedEntities = []
-    //         }
-
-    //         const createdCreditTransaction = new this.creditTransactionModel(creditTransaction)
-
-    //         // 使用事务保存
-    //         if (session) {
-    //             await createdCreditTransaction.save({ session })
-    //         } else {
-    //             await createdCreditTransaction.save()
-    //         }
-
-    //         return createdCreditTransaction.toJSON()
-    //     } catch (error) {
-    //         this.logger.error('Failed to create credit transaction', error)
+    //         this.logger.error('Failed to get credit transaction', error)
     //         throw error
     //     }
     // }
